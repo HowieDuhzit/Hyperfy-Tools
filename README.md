@@ -4,6 +4,11 @@
 
 > A high-performance Blender addon for creating optimized physics objects and colliders for the Hyperfy engine.
 
+## 📥 Download
+
+The latest release (v1.0) is available as a ready-to-install Blender addon:
+- [Download hyperfy_tools_v1.0.zip](https://github.com/yourusername/hyperfy-tools/releases/tag/v1.0)
+
 ## 🌟 Features
 
 ### 📦 Physics System
@@ -55,11 +60,14 @@
 
 ## 🚀 Installation
 
-1. Download `hyperfy_tools.zip`
+1. Download `hyperfy_tools_v1.0.zip` from the releases page
 2. Open Blender Preferences (Edit > Preferences)
 3. Go to Add-ons tab
-4. Click "Install" and select the downloaded zip
-5. Enable the addon by checking the box
+4. Click "Install" and select `hyperfy_tools_v1.0.zip`
+5. Enable the addon by checking "3D View: Hyperfy Tools"
+6. The tools will appear in the 3D View sidebar (press N)
+
+> ⚠️ Note: Do not unzip the file - Blender needs the original zip for installation
 
 ## 🎯 Quick Start
 
