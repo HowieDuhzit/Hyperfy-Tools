@@ -187,40 +187,45 @@ class HYPERFY_OT_export_glb(Operator):
         return {'RUNNING_MODAL'}
         
     def execute(self, context):
-        # Store current object visibility states
+        # Store original visibility states
         visibility_states = {}
-        hidden_objects = []
         
-        # Hide colliders and non-mesh objects
+        # Hide objects that shouldn't be exported
         for obj in bpy.data.objects:
+            # Store original states
             visibility_states[obj] = {
                 'hide_viewport': obj.hide_viewport,
-                'hide_render': obj.hide_render
+                'hide_render': obj.hide_render,
+                'original_visible': obj.visible_get()  # Store original visibility
             }
             
-            # Hide wireframe colliders
-            if obj.display_type == 'WIRE' or obj.type != 'MESH':
+            # Hide objects that are:
+            # 1. Not visible in viewport
+            # 2. Display type is wire (colliders)
+            # 3. Not mesh objects
+            if (not obj.visible_get() or 
+                obj.display_type == 'WIRE' or 
+                obj.type != 'MESH'):
                 obj.hide_viewport = True
                 obj.hide_render = True
-                hidden_objects.append(obj)
         
-        # Export only visible objects with custom properties
+        # Export only visible objects
         bpy.ops.export_scene.gltf(
             filepath=self.filepath,
             export_format='GLB',
-            use_selection=False,
-            export_extras=True,  # Export custom properties
+            use_selection=False,  # Export all visible objects
+            export_extras=True,   # Export custom properties
             export_apply=False
         )
         
-        # Restore visibility states
+        # Restore original visibility states
         for obj in bpy.data.objects:
             if obj in visibility_states:
                 state = visibility_states[obj]
                 obj.hide_viewport = state['hide_viewport']
                 obj.hide_render = state['hide_render']
-            
-        self.report({'INFO'}, f"Exported GLB to: {self.filepath}")
+        
+        self.report({'INFO'}, f"Exported visible objects to: {self.filepath}")
         return {'FINISHED'}
 
 class HYPERFY_OT_export_all_glb(Operator):
@@ -281,6 +286,43 @@ class HYPERFY_OT_export_all_glb(Operator):
         context.view_layer.objects.active = orig_active
         
         self.report({'INFO'}, f"Exported {exported_count} objects to GLB files")
+        return {'FINISHED'}
+
+class HYPERFY_OT_create_multiple_rigidbodies(Operator):
+    """Create rigidbodies for all selected objects while maintaining hierarchy"""
+    bl_idname = "hyperfy.create_multiple_rigidbodies"
+    bl_label = "Create Multiple Rigidbodies"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    def execute(self, context):
+        # Store selected objects and their original parents
+        selected_objects = [(obj, obj.parent) for obj in context.selected_objects if obj.type == 'MESH']
+        
+        # Deselect all objects
+        bpy.ops.object.select_all(action='DESELECT')
+        
+        created_count = 0
+        for obj, original_parent in selected_objects:
+            # Select and make active
+            obj.select_set(True)
+            context.view_layer.objects.active = obj
+            
+            # Create rigidbody
+            bpy.ops.hyperfy.create_rigidbody()
+            
+            # Get the newly created rigidbody empty
+            new_empty = context.active_object
+            
+            # If original had a parent, parent the new empty to it
+            if original_parent:
+                new_empty.parent = original_parent
+            
+            created_count += 1
+            
+            # Deselect for next iteration
+            bpy.ops.object.select_all(action='DESELECT')
+        
+        self.report({'INFO'}, f"Created {created_count} rigidbodies")
         return {'FINISHED'}
 
 class HYPERFY_PT_main_panel(Panel):
@@ -345,11 +387,19 @@ class HYPERFY_PT_main_panel(Panel):
         row.prop(context.scene, "hyperfy_convex", icon='MESH_ICOSPHERE')
         row.prop(context.scene, "hyperfy_trigger", icon='GHOST_ENABLED')
         
-        # Create button with gradient effect
+        # Create buttons with gradient effect
         main_box.separator()
+        
+        # Single rigidbody creation
         create_row = main_box.row(align=True)
         create_row.scale_y = 1.8
         create_row.operator("hyperfy.create_rigidbody", text="⚡ CREATE RIGIDBODY ⚡", icon='ADD')
+        
+        # Multiple rigidbody creation
+        create_multi_row = main_box.row(align=True)
+        create_multi_row.scale_y = 1.4
+        create_multi_row.operator("hyperfy.create_multiple_rigidbodies", 
+            text="⚡ CREATE MULTIPLE RIGIDBODIES ⚡", icon='GROUP')
         
         # Export section
         export_box = layout.box()
@@ -375,6 +425,7 @@ class HYPERFY_PT_main_panel(Panel):
 
 classes = (
     HYPERFY_OT_create_rigidbody,
+    HYPERFY_OT_create_multiple_rigidbodies,
     HYPERFY_OT_export_glb,
     HYPERFY_OT_export_all_glb,
     HYPERFY_PT_main_panel,
