@@ -1,6 +1,6 @@
 # ⚡ HYPERFY TOOLS v1.0 ⚡
 
-![Hyperfy Tools]([https://hyperfy.xyz/logo-icon.svg])
+![Hyperfy Tools](hyperfy_logo.png)
 
 > A high-performance Blender addon for creating optimized physics objects and colliders for the Hyperfy engine.
 
