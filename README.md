@@ -118,12 +118,6 @@ RigidBody (Empty)
 Created by Howie Duhzit
 For use with the Hyperfy Engine
 
-## 🔗 Links
-
-- [Hyperfy Documentation](https://docs.hyperfy.io)
-- [Report Issues](https://github.com/yourusername/hyperfy-tools/issues)
-- [Discord Community](https://discord.gg/hyperfy)
-
 ---
 
 <div align="center">
