@@ -1,5 +1,5 @@
 bl_info = {
-    "name": "hyperfy4blender",
+    "name": "Hyperfy Tools",
     "author": "Howie Duhzit",
     "version": (1, 0),
     "blender": (3, 0, 0),
@@ -10,6 +10,10 @@ bl_info = {
 
 import bpy
 from bpy.types import Panel, Operator
+import os
+
+# Create a global variable for custom icons
+custom_icons = None
 
 class HYPERFY_OT_create_rigidbody(Operator):
     """Create a new Rigidbody object"""
@@ -19,6 +23,7 @@ class HYPERFY_OT_create_rigidbody(Operator):
     
     def execute(self, context):
         selected_obj = context.active_object
+        original_obj = selected_obj  # Store reference to delete later
         
         # Create empty parent
         empty = bpy.data.objects.new("Rigidbody", None)
@@ -57,7 +62,8 @@ class HYPERFY_OT_create_rigidbody(Operator):
                 location=(0, 0, 0)
             )
             collider = context.active_object
-            collider.name = "Collider"  # Set name for box collider
+            collider.name = "Collider"
+            collider.display_type = 'WIRE'  # Set wireframe display
             
             # Set box size
             collider.scale.x = context.scene.hyperfy_box_width
@@ -72,7 +78,8 @@ class HYPERFY_OT_create_rigidbody(Operator):
                 location=(0, 0, 0)
             )
             collider = context.active_object
-            collider.name = "Collider"  # Set name for sphere collider
+            collider.name = "Collider"
+            collider.display_type = 'WIRE'  # Set wireframe display
             
         elif context.scene.hyperfy_collider_type == 'simple' and selected_obj:
             # Create simplified collision mesh
@@ -123,11 +130,13 @@ class HYPERFY_OT_create_rigidbody(Operator):
                 collider.data = selected_obj.data.copy()
                 context.scene.collection.objects.link(collider)
                 collider.location = (0, 0, 0)
-                collider.name = "Collider"  # Set name for geometry collider
+                collider.name = "Collider"
+                collider.display_type = 'WIRE'  # Set wireframe display
             else:
                 bpy.ops.mesh.primitive_cube_add(size=2.0, location=(0, 0, 0))
                 collider = context.active_object
-                collider.name = "Collider"  # Set name for fallback collider
+                collider.name = "Collider"
+                collider.display_type = 'WIRE'  # Set wireframe display
         
         # Remove action properties section and only use rigidbody
         empty["node"] = "rigidbody"
@@ -151,6 +160,10 @@ class HYPERFY_OT_create_rigidbody(Operator):
         bpy.ops.object.select_all(action='DESELECT')
         empty.select_set(True)
         context.view_layer.objects.active = empty
+        
+        # Delete the original object if it exists
+        if original_obj:
+            bpy.data.objects.remove(original_obj, do_unlink=True)
         
         return {'FINISHED'}
     
@@ -197,15 +210,7 @@ class HYPERFY_OT_export_glb(Operator):
             export_format='GLB',
             use_selection=False,
             export_extras=True,  # Export custom properties
-            export_current_frame=True,
-            export_apply=False,
-            export_colors=True,
-            export_materials='EXPORT',
-            export_texcoords=True,
-            export_normals=True,
-            export_draco_mesh_compression_enable=False,
-            export_yup=True,
-            will_save_settings=False
+            export_apply=False
         )
         
         # Restore visibility states
@@ -218,6 +223,66 @@ class HYPERFY_OT_export_glb(Operator):
         self.report({'INFO'}, f"Exported GLB to: {self.filepath}")
         return {'FINISHED'}
 
+class HYPERFY_OT_export_all_glb(Operator):
+    """Export all visible top-level objects as separate GLB files"""
+    bl_idname = "hyperfy.export_all_glb"
+    bl_label = "Export All GLBs"
+    
+    directory: bpy.props.StringProperty(
+        subtype='DIR_PATH',
+        default=""
+    )
+    
+    def invoke(self, context, event):
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+        
+    def execute(self, context):
+        export_dir = self.directory
+        
+        # Store original selection
+        orig_selected = context.selected_objects
+        orig_active = context.active_object
+        
+        bpy.ops.object.select_all(action='DESELECT')
+        
+        exported_count = 0
+        for obj in context.scene.objects:
+            if not obj.parent and obj.visible_get():  # Only visible top-level objects
+                # Store original location
+                orig_location = obj.location.copy()
+                obj.location = (0, 0, 0)
+                
+                # Select object and its children
+                obj.select_set(True)
+                for child in obj.children_recursive:
+                    child.select_set(True)
+                
+                context.view_layer.objects.active = obj
+                
+                # Export GLB
+                export_path = os.path.join(export_dir, f"{obj.name}.glb")
+                bpy.ops.export_scene.gltf(
+                    filepath=export_path,
+                    use_selection=True,
+                    export_format='GLB',
+                    export_extras=True,  # Enables custom properties export
+                    export_apply=False
+                )
+                
+                # Restore location and deselect
+                obj.location = orig_location
+                bpy.ops.object.select_all(action='DESELECT')
+                exported_count += 1
+        
+        # Restore original selection
+        for obj in orig_selected:
+            obj.select_set(True)
+        context.view_layer.objects.active = orig_active
+        
+        self.report({'INFO'}, f"Exported {exported_count} objects to GLB files")
+        return {'FINISHED'}
+
 class HYPERFY_PT_main_panel(Panel):
     """Hyperfy Tools Panel"""
     bl_label = "Hyperfy Tools"
@@ -226,81 +291,97 @@ class HYPERFY_PT_main_panel(Panel):
     bl_region_type = 'UI'
     bl_category = 'Hyperfy'
 
-    def draw_header(self, context):
-        layout = self.layout
-        layout.label(text="", icon='BOLT')
-
     def draw(self, context):
         layout = self.layout
         
-        # Main container
+        # Physics section
         main_box = layout.box()
+        main_box.alert = True
+        main_box.label(text="⚡ PHYSICS SYSTEM ⚡", icon='PHYSICS')
         
-        # Title with lightning bolts
-        row = main_box.row()
-        row.alignment = 'CENTER'
-        row.label(text="⚡ HYPERFY ⚡")
-        
-        # Rigidbody Settings
+        # Rigidbody Settings with neon effect
         rb_box = main_box.box()
-        row = rb_box.row()
-        row.label(text="RIGIDBODY", icon='BOLT')
+        rb_box.label(text="▸ RIGIDBODY", icon='OUTLINER_OB_EMPTY')
         col = rb_box.column(align=True)
+        col.scale_y = 1.1
+        col.use_property_split = True
+        col.use_property_decorate = False  # No animation dots
         col.prop(context.scene, "hyperfy_physics_type", text="")
         col.prop(context.scene, "hyperfy_mass")
         
-        # Mesh Settings
+        # Mesh Settings with purple tint
         mesh_box = main_box.box()
-        row = mesh_box.row()
-        row.label(text="MESH", icon='BOLT')
+        mesh_box.alert = True  # Will use purple color
+        mesh_box.label(text="▸ MESH", icon='MESH_DATA')
         col = mesh_box.column(align=True)
         row = col.row(align=True)
+        row.scale_y = 1.1
         row.prop(context.scene, "hyperfy_cast_shadow")
         row.prop(context.scene, "hyperfy_receive_shadow")
         
-        # Collider Settings
+        # Collider Settings with blue tint
         col_box = main_box.box()
-        row = col_box.row()
-        row.label(text="COLLIDER", icon='BOLT')
+        col_box.alert = True  # Will use blue color
+        col_box.label(text="▸ COLLIDER", icon='MOD_MESHDEFORM')
         col = col_box.column(align=True)
+        col.scale_y = 1.1
         col.prop(context.scene, "hyperfy_collider_type", text="")
         
         # Show relevant properties based on collider type
         if context.scene.hyperfy_collider_type == 'box':
             box_col = col.column(align=True)
+            box_col.scale_y = 1.1
+            box_col.use_property_split = True
             box_col.prop(context.scene, "hyperfy_box_width")
             box_col.prop(context.scene, "hyperfy_box_height")
             box_col.prop(context.scene, "hyperfy_box_depth")
         elif context.scene.hyperfy_collider_type == 'sphere':
+            col.use_property_split = True
             col.prop(context.scene, "hyperfy_sphere_radius")
         
         col.separator()
         row = col.row(align=True)
+        row.scale_y = 1.1
         row.prop(context.scene, "hyperfy_convex", icon='MESH_ICOSPHERE')
         row.prop(context.scene, "hyperfy_trigger", icon='GHOST_ENABLED')
         
-        # Create button
+        # Create button with gradient effect
         main_box.separator()
-        row = main_box.row(align=True)
-        row.scale_y = 1.5
-        row.operator("hyperfy.create_rigidbody", text="⚡ CREATE ⚡")
+        create_row = main_box.row(align=True)
+        create_row.scale_y = 1.8
+        create_row.operator("hyperfy.create_rigidbody", text="⚡ CREATE RIGIDBODY ⚡", icon='ADD')
         
         # Export section
         export_box = layout.box()
-        row = export_box.row()
-        row.label(text="EXPORT", icon='BOLT')
-        row = export_box.row()
-        row.scale_y = 1.2
-        row.operator("hyperfy.export_glb", text="EXPORT GLB", icon='FILE_BACKUP')
+        export_box.alert = True
+        export_box.label(text="▸ EXPORT OPTIONS", icon='EXPORT')
+        
+        # Single GLB export
+        row = export_box.row(align=True)
+        row.scale_y = 1.4
+        row.operator("hyperfy.export_glb", text="EXPORT SCENE", icon='FILE_BLEND')
+        
+        # Batch GLB export
+        row = export_box.row(align=True)
+        row.scale_y = 1.4
+        row.operator("hyperfy.export_all_glb", text="EXPORT OBJECTS", icon='PACKAGE')
+        
+        # Info text
+        info_box = export_box.box()
+        col = info_box.column(align=True)
+        col.scale_y = 0.8
+        col.label(text="Scene: Export entire scene as single GLB", icon='INFO')
+        col.label(text="Objects: Export each object as separate GLB", icon='INFO')
 
 classes = (
     HYPERFY_OT_create_rigidbody,
     HYPERFY_OT_export_glb,
+    HYPERFY_OT_export_all_glb,
     HYPERFY_PT_main_panel,
 )
 
 def register():
-    # Remove action properties
+    # Remove icon loading code
     bpy.types.Scene.hyperfy_physics_type = bpy.props.EnumProperty(
         name="Type",
         description="Physics type for the rigidbody",
@@ -386,7 +467,7 @@ def register():
         bpy.utils.register_class(cls)
 
 def unregister():
-    # Remove action properties from unregister
+    # Remove icon unloading code
     for cls in classes:
         bpy.utils.unregister_class(cls)
     del bpy.types.Scene.hyperfy_physics_type
