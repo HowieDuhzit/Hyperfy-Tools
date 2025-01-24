@@ -7,7 +7,7 @@
 ## 📥 Download
 
 The latest release (v1.0) is available as a ready-to-install Blender addon:
-- [Download hyperfy_tools_v1.0.zip](https://github.com/yourusername/hyperfy-tools/releases/tag/v1.0)
+- [Download hyperfy_tools_v1.0.zip](https://github.com/HowieDuhzit/Hyperfy-Tools/releases/tag/v1)
 
 ## 🌟 Features
 
