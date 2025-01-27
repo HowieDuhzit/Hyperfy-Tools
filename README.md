@@ -12,24 +12,22 @@
 
 </div>
 
-## 📥 Installation Matrix
+## 📥 Installation
 
-Latest build (v1.1.0) available for direct neural download:
+Latest build (v1.1.0) available for direct download:
 - [Download hyperfy_tools_v1.1.0.zip](https://github.com/HowieDuhzit/Hyperfy-Tools/releases/tag/v1.1.0)
 
 ### System Requirements
 - Blender 4.3.0+
 - Compatible with all major OS platforms
-- Neural interface optional
 
 ## 🌟 Core Systems
 
-### 📦 Physics Matrix
+### 📦 Physics
 - **Rigidbody Types**
   - `STATIC` - Immovable collision anchors
   - `DYNAMIC` - Full physics simulation
   - `KINEMATIC` - Programmed movement patterns
-  - Advanced mass configuration system
 
 ### 🛡️ Collider Framework
 - **Box Collider [BOX]**
@@ -76,7 +74,6 @@ Latest build (v1.1.0) available for direct neural download:
   - Multi-object processing
   - Auto-centering algorithm
   - Individual GLB generation
-  - Asset library optimization
 
 ### ⚡ Batch Operations
 - **Multi-Rigidbody Creation**
@@ -85,13 +82,13 @@ Latest build (v1.1.0) available for direct neural download:
   - Automated collider generation
   - Mass property configuration
 
-## 🚀 Neural Interface Installation
+## 🚀 Installation
 
-1. Download `hyperfy_tools_v1.1.0.zip` from the mainframe
-2. Access Blender's core (Edit > Preferences)
-3. Navigate to Add-ons subnet
-4. Execute "Install" protocol - select `hyperfy_tools_v1.1.0.zip`
-5. Activate neural link by enabling "3D View: Hyperfy Tools"
+1. Download `hyperfy_tools_v1.1.0.zip`
+2. Access Blender's Preferences (Edit > Preferences)
+3. Navigate to Add-ons
+4. Click "Install" - select `hyperfy_tools_v1.1.0.zip`
+5. Activate by enabling "3D View: Hyperfy Tools"
 6. Interface accessible in 3D View sidebar (Neural key: N)
 
 > ⚠️ CRITICAL: Maintain zip integrity - Blender requires original package structure
@@ -106,7 +103,7 @@ Latest build (v1.1.0) available for direct neural download:
 
 ## 🔧 Optimization Protocols
 
-### Collider Selection Matrix
+### Collider Selection
 ```
 ┌────────────┬─────────────────────────┐
 │ BOX        │ Basic geometry          │
@@ -146,7 +143,7 @@ trigger: boolean
 mass: float
 ```
 
-### Hierarchy Matrix
+### Hierarchy
 ```
 RigidBody (Empty)
 ├── Mesh
