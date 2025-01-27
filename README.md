@@ -14,8 +14,8 @@
 
 ## 📥 Installation
 
-Latest build (v1.1.0) available for direct download:
-- [Download hyperfy_tools_v1.1.0.zip](https://github.com/HowieDuhzit/Hyperfy-Tools/releases/tag/v1.1.0)
+Latest build (V1.1) available for direct download:
+- [Download hyperfy_tools_V1.1.zip](https://github.com/HowieDuhzit/Hyperfy-Tools/releases/tag/V1.1)
 
 ### System Requirements
 - Blender 4.3.0+
