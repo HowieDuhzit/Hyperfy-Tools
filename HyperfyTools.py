@@ -15,6 +15,83 @@ import os
 # Create a global variable for custom icons
 custom_icons = None
 
+def setup_collider(obj, context):
+    """Setup common collider properties"""
+    obj.name = "Collider"
+    obj.display_type = 'WIRE'
+    obj.data.materials.clear()
+    
+    # Add only essential collider properties
+    obj["node"] = "collider"
+    obj["convex"] = context.scene.hyperfy_convex
+    obj["trigger"] = context.scene.hyperfy_trigger
+    
+    return obj
+
+def is_collider(obj):
+    """Check if object is already a collider"""
+    return obj.get("node") == "collider" and obj.display_type == 'WIRE'
+
+def create_box_collider(context):
+    """Create a box collider"""
+    bpy.ops.mesh.primitive_cube_add(size=2.0, location=(0, 0, 0))
+    collider = context.active_object
+    setup_collider(collider, context)
+    
+    # Set box size
+    collider.scale.x = context.scene.hyperfy_box_width
+    collider.scale.y = context.scene.hyperfy_box_height
+    collider.scale.z = context.scene.hyperfy_box_depth
+    
+    return collider
+
+def create_sphere_collider(context):
+    """Create a sphere collider"""
+    bpy.ops.mesh.primitive_uv_sphere_add(
+        radius=context.scene.hyperfy_sphere_radius,
+        segments=32,
+        ring_count=16,
+        location=(0, 0, 0)
+    )
+    collider = context.active_object
+    setup_collider(collider, context)
+    return collider
+
+def create_simple_collider(obj, context):
+    """Create a simplified collision mesh"""
+    collider = obj.copy()
+    collider.data = obj.data.copy()
+    context.scene.collection.objects.link(collider)
+    collider.location = (0, 0, 0)
+    setup_collider(collider, context)
+    
+    # First use voxel remesh to create a solid mesh
+    remesh = collider.modifiers.new(name="Remesh", type='REMESH')
+    remesh.mode = 'VOXEL'
+    remesh.voxel_size = max(collider.dimensions) / 4
+    
+    # Apply remesh
+    context.view_layer.objects.active = collider
+    bpy.ops.object.modifier_apply(modifier="Remesh")
+    
+    # Add decimate modifier
+    decimate = collider.modifiers.new(name="Decimate", type='DECIMATE')
+    decimate.decimate_type = 'DISSOLVE'
+    decimate.angle_limit = 0.5
+    
+    # Apply decimate
+    bpy.ops.object.modifier_apply(modifier="Decimate")
+    
+    # Clean up mesh
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.select_all(action='SELECT')
+    bpy.ops.mesh.remove_doubles(threshold=0.05)
+    bpy.ops.mesh.dissolve_degenerate()
+    bpy.ops.mesh.delete_loose()
+    bpy.ops.object.mode_set(mode='OBJECT')
+    
+    return collider
+
 class HYPERFY_OT_create_rigidbody(Operator):
     """Create a new Rigidbody object"""
     bl_idname = "hyperfy.create_rigidbody"
@@ -23,147 +100,91 @@ class HYPERFY_OT_create_rigidbody(Operator):
     
     def execute(self, context):
         selected_obj = context.active_object
-        original_obj = selected_obj  # Store reference to delete later
         
-        # Create empty parent
-        empty = bpy.data.objects.new("Rigidbody", None)
-        empty.empty_display_type = 'PLAIN_AXES'
-        empty.empty_display_size = 1
-        context.scene.collection.objects.link(empty)
-        
-        if selected_obj:
-            # Position empty at object's location
-            empty.location = selected_obj.location.copy()
-            
-            # Duplicate the selected object for the mesh
-            mesh_obj = selected_obj.copy()
-            mesh_obj.data = selected_obj.data.copy()
-            mesh_obj.name = "Mesh"
-            context.scene.collection.objects.link(mesh_obj)
-            
-            # Reset mesh position relative to parent
-            mesh_obj.location = (0, 0, 0)
-            
-        else:
-            # Create default cube mesh
+        if not selected_obj:
+            # Create default cube mesh and collider
             bpy.ops.mesh.primitive_cube_add(size=2.0, location=(0, 0, 0))
             mesh_obj = context.active_object
             mesh_obj.name = "Mesh"
-        
-        # Add mesh properties
-        mesh_obj["castShadow"] = context.scene.hyperfy_cast_shadow
-        mesh_obj["receiveShadow"] = context.scene.hyperfy_receive_shadow
-        mesh_obj["node"] = "Mesh"
-        
-        # Create collider based on type
-        if context.scene.hyperfy_collider_type == 'box':
-            bpy.ops.mesh.primitive_cube_add(
-                size=2.0,
-                location=(0, 0, 0)
-            )
-            collider = context.active_object
-            collider.name = "Collider"
-            collider.display_type = 'WIRE'  # Set wireframe display
+            collider = create_box_collider(context)
+        else:
+            # Store original location and parent
+            orig_location = selected_obj.location.copy()
+            orig_parent = selected_obj.parent
             
-            # Set box size
-            collider.scale.x = context.scene.hyperfy_box_width
-            collider.scale.y = context.scene.hyperfy_box_height
-            collider.scale.z = context.scene.hyperfy_box_depth
+            # Create empty parent at original location
+            empty = bpy.data.objects.new("Rigidbody", None)
+            empty.empty_display_type = 'PLAIN_AXES'
+            empty.empty_display_size = 1
+            empty.location = orig_location
+            context.scene.collection.objects.link(empty)
             
-        elif context.scene.hyperfy_collider_type == 'sphere':
-            bpy.ops.mesh.primitive_uv_sphere_add(
-                radius=context.scene.hyperfy_sphere_radius,
-                segments=32,
-                ring_count=16,
-                location=(0, 0, 0)
-            )
-            collider = context.active_object
-            collider.name = "Collider"
-            collider.display_type = 'WIRE'  # Set wireframe display
-            
-        elif context.scene.hyperfy_collider_type == 'simple' and selected_obj:
-            # Create simplified collision mesh
-            collider = selected_obj.copy()
-            collider.data = selected_obj.data.copy()
-            context.scene.collection.objects.link(collider)
-            collider.location = (0, 0, 0)
-            collider.name = "Collider"
-            
-            # First use voxel remesh to create a solid mesh
-            remesh = collider.modifiers.new(name="Remesh", type='REMESH')
-            remesh.mode = 'VOXEL'
-            remesh.voxel_size = max(collider.dimensions) / 4  # Larger voxels for simpler shape
-            
-            # Apply remesh
-            context.view_layer.objects.active = collider
-            bpy.ops.object.modifier_apply(modifier="Remesh")
-            
-            # Add decimate modifier to reduce poly count dramatically
-            decimate = collider.modifiers.new(name="Decimate", type='DECIMATE')
-            decimate.decimate_type = 'DISSOLVE'  # Changed from PLANAR to DISSOLVE
-            decimate.angle_limit = 0.5  # Larger angle for more reduction
-            
-            # Apply decimate
-            bpy.ops.object.modifier_apply(modifier="Decimate")
-            
-            # Clean up mesh
-            context.view_layer.objects.active = collider
-            bpy.ops.object.mode_set(mode='EDIT')
-            bpy.ops.mesh.select_all(action='SELECT')
-            bpy.ops.mesh.remove_doubles(threshold=0.05)  # Merge close vertices
-            bpy.ops.mesh.dissolve_degenerate()  # Remove bad geometry
-            bpy.ops.mesh.delete_loose()  # Remove any floating vertices
-            bpy.ops.object.mode_set(mode='OBJECT')
-            
-            # Force non-convex since we're already simplifying
-            context.scene.hyperfy_convex = False
-            
-            # Make sure it's wireframe
-            collider.display_type = 'WIRE'
-            
-            # Parent to empty
-            collider.parent = empty
-        
-        else:  # geometry or fallback
-            if selected_obj:
+            # Check if selected object is already a collider
+            if is_collider(selected_obj):
+                # Create mesh from collider
+                mesh_obj = selected_obj.copy()
+                mesh_obj.data = selected_obj.data.copy()
+                mesh_obj.name = "Mesh"
+                context.scene.collection.objects.link(mesh_obj)
+                mesh_obj.location = (0, 0, 0)
+                mesh_obj.display_type = 'TEXTURED'  # Reset display type
+                
+                # Create collider from existing collider
                 collider = selected_obj.copy()
                 collider.data = selected_obj.data.copy()
                 context.scene.collection.objects.link(collider)
                 collider.location = (0, 0, 0)
-                collider.name = "Collider"
-                collider.display_type = 'WIRE'  # Set wireframe display
+                setup_collider(collider, context)
             else:
-                bpy.ops.mesh.primitive_cube_add(size=2.0, location=(0, 0, 0))
-                collider = context.active_object
-                collider.name = "Collider"
-                collider.display_type = 'WIRE'  # Set wireframe display
-        
-        # Remove action properties section and only use rigidbody
-        empty["node"] = "rigidbody"
-        empty["mass"] = context.scene.hyperfy_mass
-        empty["type"] = context.scene.hyperfy_physics_type
-        
-        # Add collider properties
-        collider["node"] = "collider"
-        collider["type"] = context.scene.hyperfy_collider_type
-        collider["convex"] = context.scene.hyperfy_convex
-        collider["trigger"] = context.scene.hyperfy_trigger
-        
-        if context.scene.hyperfy_collider_type == 'sphere':
-            collider["radius"] = context.scene.hyperfy_sphere_radius
-        
-        # Parent objects to empty
-        mesh_obj.parent = empty
-        collider.parent = empty
-        
-        # Select the empty and make it active
-        bpy.ops.object.select_all(action='DESELECT')
-        empty.select_set(True)
-        context.view_layer.objects.active = empty
-        
-        # Delete the original object if it exists
-        if original_obj:
-            bpy.data.objects.remove(original_obj, do_unlink=True)
+                # Create mesh from regular object
+                mesh_obj = selected_obj.copy()
+                mesh_obj.data = selected_obj.data.copy()
+                mesh_obj.name = "Mesh"
+                context.scene.collection.objects.link(mesh_obj)
+                mesh_obj.location = (0, 0, 0)
+                
+                # Create appropriate collider
+                if context.scene.hyperfy_collider_type == 'box':
+                    collider = create_box_collider(context)
+                elif context.scene.hyperfy_collider_type == 'sphere':
+                    collider = create_sphere_collider(context)
+                elif context.scene.hyperfy_collider_type == 'simple':
+                    collider = create_simple_collider(selected_obj, context)
+                else:  # geometry
+                    collider = selected_obj.copy()
+                    collider.data = selected_obj.data.copy()
+                    context.scene.collection.objects.link(collider)
+                    collider.location = (0, 0, 0)
+                    setup_collider(collider, context)
+            
+            # Add mesh properties
+            mesh_obj["castShadow"] = context.scene.hyperfy_cast_shadow
+            mesh_obj["receiveShadow"] = context.scene.hyperfy_receive_shadow
+            mesh_obj["node"] = "Mesh"
+            
+            # Delete original object and its hierarchy
+            if orig_parent and orig_parent.get("node") == "rigidbody":
+                # If part of existing rigidbody setup, delete the whole setup
+                for child in orig_parent.children[:]:  # Use slice to avoid modification during iteration
+                    bpy.data.objects.remove(child, do_unlink=True)
+                bpy.data.objects.remove(orig_parent, do_unlink=True)
+            else:
+                # Just delete the original object
+                bpy.data.objects.remove(selected_obj, do_unlink=True)
+            
+            # Add rigidbody properties
+            empty["node"] = "rigidbody"
+            empty["mass"] = context.scene.hyperfy_mass
+            empty["type"] = context.scene.hyperfy_physics_type
+            
+            # Parent objects
+            mesh_obj.parent = empty
+            collider.parent = empty
+            
+            # Select the empty
+            bpy.ops.object.select_all(action='DESELECT')
+            empty.select_set(True)
+            context.view_layer.objects.active = empty
         
         return {'FINISHED'}
     
@@ -171,7 +192,7 @@ class HYPERFY_OT_create_rigidbody(Operator):
         layout.prop(self, "physics_type")
 
 class HYPERFY_OT_export_glb(Operator):
-    """Export visible objects as GLB with custom properties"""
+    """Export selected objects as GLB with custom properties"""
     bl_idname = "hyperfy.export_glb"
     bl_label = "Export GLB"
     
@@ -187,45 +208,19 @@ class HYPERFY_OT_export_glb(Operator):
         return {'RUNNING_MODAL'}
         
     def execute(self, context):
-        # Store original visibility states
-        visibility_states = {}
+        if not context.selected_objects:
+            self.report({'ERROR'}, "No objects selected")
+            return {'CANCELLED'}
         
-        # Hide objects that shouldn't be exported
-        for obj in bpy.data.objects:
-            # Store original states
-            visibility_states[obj] = {
-                'hide_viewport': obj.hide_viewport,
-                'hide_render': obj.hide_render,
-                'original_visible': obj.visible_get()  # Store original visibility
-            }
-            
-            # Hide objects that are:
-            # 1. Not visible in viewport
-            # 2. Display type is wire (colliders)
-            # 3. Not mesh objects
-            if (not obj.visible_get() or 
-                obj.display_type == 'WIRE' or 
-                obj.type != 'MESH'):
-                obj.hide_viewport = True
-                obj.hide_render = True
-        
-        # Export only visible objects
+        # Export selected objects
         bpy.ops.export_scene.gltf(
             filepath=self.filepath,
             export_format='GLB',
-            use_selection=False,  # Export all visible objects
-            export_extras=True,   # Export custom properties
-            export_apply=False
+            use_selection=True,
+            export_extras=True
         )
         
-        # Restore original visibility states
-        for obj in bpy.data.objects:
-            if obj in visibility_states:
-                state = visibility_states[obj]
-                obj.hide_viewport = state['hide_viewport']
-                obj.hide_render = state['hide_render']
-        
-        self.report({'INFO'}, f"Exported visible objects to: {self.filepath}")
+        self.report({'INFO'}, f"Exported selected objects to: {self.filepath}")
         return {'FINISHED'}
 
 class HYPERFY_OT_export_all_glb(Operator):
@@ -298,6 +293,9 @@ class HYPERFY_OT_create_multiple_rigidbodies(Operator):
         # Store selected objects and their original parents
         selected_objects = [(obj, obj.parent) for obj in context.selected_objects if obj.type == 'MESH']
         
+        # Store current trigger state
+        trigger_state = context.scene.hyperfy_trigger
+        
         # Deselect all objects
         bpy.ops.object.select_all(action='DESELECT')
         
@@ -316,6 +314,11 @@ class HYPERFY_OT_create_multiple_rigidbodies(Operator):
             # If original had a parent, parent the new empty to it
             if original_parent:
                 new_empty.parent = original_parent
+            
+            # Make sure trigger state is correctly set on the collider
+            for child in new_empty.children:
+                if child.name == "Collider":
+                    child["trigger"] = trigger_state
             
             created_count += 1
             
@@ -401,27 +404,27 @@ class HYPERFY_PT_main_panel(Panel):
         create_multi_row.operator("hyperfy.create_multiple_rigidbodies", 
             text="⚡ CREATE MULTIPLE RIGIDBODIES ⚡", icon='GROUP')
         
-        # Export section
+        # Export section with gradient border
         export_box = layout.box()
         export_box.alert = True
         export_box.label(text="▸ EXPORT OPTIONS", icon='EXPORT')
         
-        # Single GLB export
+        # Single object export
         row = export_box.row(align=True)
         row.scale_y = 1.4
-        row.operator("hyperfy.export_glb", text="EXPORT SCENE", icon='FILE_BLEND')
+        row.operator("hyperfy.export_glb", text="EXPORT OBJECT", icon='OBJECT_DATA')
         
-        # Batch GLB export
+        # Batch export
         row = export_box.row(align=True)
         row.scale_y = 1.4
-        row.operator("hyperfy.export_all_glb", text="EXPORT OBJECTS", icon='PACKAGE')
+        row.operator("hyperfy.export_all_glb", text="EXPORT ALL OBJECTS", icon='PACKAGE')
         
         # Info text
         info_box = export_box.box()
         col = info_box.column(align=True)
         col.scale_y = 0.8
-        col.label(text="Scene: Export entire scene as single GLB", icon='INFO')
-        col.label(text="Objects: Export each object as separate GLB", icon='INFO')
+        col.label(text="Object: Export selected objects", icon='INFO')
+        col.label(text="All: Export each object separately", icon='INFO')
 
 classes = (
     HYPERFY_OT_create_rigidbody,
