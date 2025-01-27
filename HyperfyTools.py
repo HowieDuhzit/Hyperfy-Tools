@@ -1,13 +1,3 @@
-bl_info = {
-    "name": "Hyperfy Tools",
-    "author": "Howie Duhzit",
-    "version": (1, 0),
-    "blender": (3, 0, 0),
-    "location": "View3D > Sidebar > Hyperfy",
-    "description": "Tools for creating Hyperfy assets",
-    "category": "3D View",
-}
-
 import bpy
 from bpy.types import Panel, Operator
 import os

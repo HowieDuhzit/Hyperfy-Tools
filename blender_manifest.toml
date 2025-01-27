@@ -1,0 +1,35 @@
+schema_version = "1.0.0"
+
+# Hyperfy Tools Blender Extension
+id = "hyperfy_tools"
+version = "1.1.0"
+name = "Hyperfy Tools"
+tagline = "Tools for creating Hyperfy assets with physics and colliders"
+maintainer = "Howie Duhzit"
+type = "add-on"
+
+# Categories that best describe this extension
+tags = ["Physics", "Import-Export", "3D View"]
+
+blender_version_min = "4.3.0"
+
+# License specification
+license = [
+    "SPDX:GPL-3.0-or-later"
+]
+
+copyright = [
+    "2024 Howie Duhzit"
+]
+
+# Required permissions for functionality
+[permissions]
+files = "Import/export GLB files from/to disk"
+
+# Build configuration
+[build]
+paths_exclude_pattern = [
+    "__pycache__/",
+    "/.git/",
+    "/*.zip",
+] 

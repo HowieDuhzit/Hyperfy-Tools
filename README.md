@@ -1,131 +1,175 @@
-# ⚡ HYPERFY TOOLS v1.0 ⚡
+# ⚡ HYPERFY TOOLS v1.1.0 ⚡
 
-![Hyperfy Tools](hyperfy_logo.png)
+<div align="center">
+
+```ascii
+╔══════════════════════════════════════╗
+║     H Y P E R F Y  ·  T O O L S     ║
+╚══════════════════════════════════════╝
+```
 
 > A high-performance Blender addon for creating optimized physics objects and colliders for the Hyperfy engine.
 
-## 📥 Download
+</div>
 
-The latest release (v1.0) is available as a ready-to-install Blender addon:
-- [Download hyperfy_tools_v1.0.zip](https://github.com/HowieDuhzit/Hyperfy-Tools/releases/tag/v1)
+## 📥 Installation Matrix
 
-## 🌟 Features
+Latest build (v1.1.0) available for direct neural download:
+- [Download hyperfy_tools_v1.1.0.zip](https://github.com/HowieDuhzit/Hyperfy-Tools/releases/tag/v1.1.0)
 
-### 📦 Physics System
-- **Rigidbody Creation**
-  - Static (non-moving collision objects)
-  - Dynamic (physics-driven objects)
-  - Kinematic (animated collision objects)
-  - Customizable mass properties
+### System Requirements
+- Blender 4.3.0+
+- Compatible with all major OS platforms
+- Neural interface optional
 
-### 🛡️ Collider Types
-- **Box Collider**
-  - Adjustable width/height/depth
-  - Perfect for simple geometric shapes
+## 🌟 Core Systems
+
+### 📦 Physics Matrix
+- **Rigidbody Types**
+  - `STATIC` - Immovable collision anchors
+  - `DYNAMIC` - Full physics simulation
+  - `KINEMATIC` - Programmed movement patterns
+  - Advanced mass configuration system
+
+### 🛡️ Collider Framework
+- **Box Collider [BOX]**
+  - Precision width/height/depth control
+  - Optimal for architectural elements
   
-- **Sphere Collider**
-  - Adjustable radius
-  - Ideal for rounded objects
+- **Sphere Collider [SPH]**
+  - Variable radius configuration
+  - Perfect for projectiles/particles
   
-- **Geometry Collider**
-  - Uses exact mesh shape
-  - Best for complex static objects
+- **Geometry Collider [GEO]**
+  - 1:1 mesh precision
+  - Ideal for complex static meshes
   
-- **Simple Collider**
-  - Automated mesh simplification
-  - Optimized for performance
-  - Maintains collision accuracy
-  - Perfect for complex dynamic objects
+- **Simple Collider [SIM]**
+  - Automated mesh optimization
+  - Smart polygon reduction
+  - Collision accuracy preservation
+  - Performance-optimized for dynamic objects
 
-### 🎮 Advanced Options
-- **Convex/Concave Toggle**
-  - Convex for dynamic-dynamic collisions
-  - Concave for complex static shapes
+### 🎮 Advanced Protocols
+- **Collision Properties**
+  - `CONVEX` mode for dynamic interactions
+  - `CONCAVE` mode for static precision
   
-- **Trigger Volumes**
-  - Create non-physical trigger zones
-  - Perfect for interaction areas
+- **Trigger System**
+  - Non-physical interaction volumes
+  - Event zone creation
+  - Perfect for detection areas
 
-### 💾 Export System
-- **Scene Export**
-  - Export entire scene as single GLB
-  - Maintains hierarchies
-  - Preserves custom properties
+### 🎨 Mesh Configuration
+- **Shadow System**
+  - Configurable shadow casting
+  - Customizable shadow reception
+  - Performance optimization options
+
+### 💾 Export Protocols
+- **Single Export Protocol**
+  - Selected object export
+  - Hierarchy preservation
+  - Custom property retention
   
-- **Batch Export**
-  - Export multiple objects
-  - Auto-centers each object
-  - Separate GLB per object
-  - Perfect for kit-bashing
+- **Batch Export Protocol**
+  - Multi-object processing
+  - Auto-centering algorithm
+  - Individual GLB generation
+  - Asset library optimization
 
-## 🚀 Installation
+### ⚡ Batch Operations
+- **Multi-Rigidbody Creation**
+  - Bulk physics setup
+  - Hierarchy preservation
+  - Automated collider generation
+  - Mass property configuration
 
-1. Download `hyperfy_tools_v1.0.zip` from the releases page
-2. Open Blender Preferences (Edit > Preferences)
-3. Go to Add-ons tab
-4. Click "Install" and select `hyperfy_tools_v1.0.zip`
-5. Enable the addon by checking "3D View: Hyperfy Tools"
-6. The tools will appear in the 3D View sidebar (press N)
+## 🚀 Neural Interface Installation
 
-> ⚠️ Note: Do not unzip the file - Blender needs the original zip for installation
+1. Download `hyperfy_tools_v1.1.0.zip` from the mainframe
+2. Access Blender's core (Edit > Preferences)
+3. Navigate to Add-ons subnet
+4. Execute "Install" protocol - select `hyperfy_tools_v1.1.0.zip`
+5. Activate neural link by enabling "3D View: Hyperfy Tools"
+6. Interface accessible in 3D View sidebar (Neural key: N)
 
-## 🎯 Quick Start
+> ⚠️ CRITICAL: Maintain zip integrity - Blender requires original package structure
 
-1. Open the Hyperfy Tools panel in the 3D View sidebar (N)
-2. Select an object (optional)
-3. Choose physics and collider settings
-4. Click "CREATE RIGIDBODY"
-5. Export using preferred method
+## 🎯 Quick Boot Sequence
 
-## 🔧 Usage Tips
+1. Initialize Hyperfy Tools in sidebar (N)
+2. Select target mesh (optional)
+3. Configure physics/collider parameters
+4. Execute "CREATE RIGIDBODY"
+5. Export via preferred protocol
 
-### Optimal Collider Selection
-- **Box**: Use for basic shapes (cubes, buildings)
-- **Sphere**: Best for rounded objects (balls, planets)
-- **Geometry**: Use for detailed static objects
-- **Simple**: Perfect for performance-critical dynamic objects
+## 🔧 Optimization Protocols
+
+### Collider Selection Matrix
+```
+┌────────────┬─────────────────────────┐
+│ BOX        │ Basic geometry          │
+│ SPHERE     │ Spherical objects       │
+│ GEOMETRY   │ Complex static meshes   │
+│ SIMPLE     │ Optimized dynamics      │
+└────────────┴─────────────────────────┘
+```
 
 ### Performance Optimization
-- Use convex colliders when possible
-- Simple colliders reduce physics calculations
-- Box and sphere colliders are most efficient
+```
+┌─────────────┬────────────────────┐
+│ CONVEX      │ Physics optimal    │
+│ SIMPLE      │ Reduced overhead   │
+│ BOX/SPHERE  │ Maximum efficiency │
+└─────────────┴────────────────────┘
+```
 
 ### Export Guidelines
-- Scene export for connected objects
-- Batch export for separate assets
-- Colliders are automatically hidden in export
+```
+┌──────────┬───────────────────┐
+│ SCENE    │ Connected assets  │
+│ BATCH    │ Separate objects  │
+│ COLLIDER │ Auto-hidden      │
+└──────────┴───────────────────┘
+```
 
-## 🛠️ Technical Details
+## 🛠️ Technical Specifications
 
-### Property Types
+### Data Structure
 ```python
-node: "rigidbody" | "collider"
+node: "rigidbody" | "collider" | "mesh"
 type: "static" | "dynamic" | "kinematic"
 collider: "box" | "sphere" | "geometry" | "simple"
 convex: boolean
 trigger: boolean
+mass: float
 ```
 
-### File Structure
+### Hierarchy Matrix
 ```
 RigidBody (Empty)
 ├── Mesh
+│   ├── castShadow
+│   └── receiveShadow
 └── Collider
+    ├── convex
+    └── trigger
 ```
 
 ## 💫 Credits
 
-Created by Howie Duhzit
-For use with the Hyperfy Engine
+Engineered by Howie Duhzit
+For integration with Hyperfy Engine v1.1.0
 
 ---
 
 <div align="center">
 
 ```ascii
- +-+-+-+-+-+-+ +-+-+-+-+-+
- |H|Y|P|E|R|F|Y|T|O|O|L|S|
- +-+-+-+-+-+-+ +-+-+-+-+-+
+╔═══════════════════════════════════════════╗
+║  HYPERFY TOOLS - ENHANCE YOUR REALITY     ║
+╚═══════════════════════════════════════════╝
 ```
 
 </div> 
