@@ -2,7 +2,7 @@ schema_version = "1.0.0"
 
 # Hyperfy Tools Blender Extension
 id = "hyperfy_tools"
-version = "1.1.0"
+version = "1.2.0"
 name = "Hyperfy Tools"
 tagline = "Tools for creating Hyperfy assets with physics and colliders"
 maintainer = "Howie Duhzit"

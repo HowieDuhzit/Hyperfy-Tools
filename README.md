@@ -1,4 +1,4 @@
-# ⚡ HYPERFY TOOLS v1.1.0 ⚡
+# ⚡ HYPERFY TOOLS v1.2.0 ⚡
 
 <div align="center">
 

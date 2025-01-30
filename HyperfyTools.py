@@ -1,5 +1,5 @@
 import bpy
-from bpy.types import Panel, Operator
+from bpy.types import Panel, Operator, Menu
 import os
 
 # Create a global variable for custom icons
@@ -98,12 +98,13 @@ class HYPERFY_OT_create_rigidbody(Operator):
             mesh_obj.name = "Mesh"
             collider = create_box_collider(context)
         else:
-            # Store original location and parent
+            # Store original name and location
+            orig_name = selected_obj.name
             orig_location = selected_obj.location.copy()
             orig_parent = selected_obj.parent
             
-            # Create empty parent at original location
-            empty = bpy.data.objects.new("Rigidbody", None)
+            # Create empty parent at original location with original name
+            empty = bpy.data.objects.new(orig_name, None)
             empty.empty_display_type = 'PLAIN_AXES'
             empty.empty_display_size = 1
             empty.location = orig_location
@@ -177,9 +178,52 @@ class HYPERFY_OT_create_rigidbody(Operator):
             context.view_layer.objects.active = empty
         
         return {'FINISHED'}
+
+class HYPERFY_OT_create_multiple_rigidbodies(Operator):
+    """Create rigidbodies for all selected objects while maintaining hierarchy"""
+    bl_idname = "hyperfy.create_multiple_rigidbodies"
+    bl_label = "Create Multiple Rigidbodies"
+    bl_options = {'REGISTER', 'UNDO'}
     
-    def draw(self, layout):
-        layout.prop(self, "physics_type")
+    def execute(self, context):
+        # Store selected objects, their original names and parents
+        selected_objects = [(obj, obj.name, obj.parent) for obj in context.selected_objects if obj.type == 'MESH']
+        
+        # Store current trigger state
+        trigger_state = context.scene.hyperfy_trigger
+        
+        # Deselect all objects
+        bpy.ops.object.select_all(action='DESELECT')
+        
+        created_count = 0
+        for obj, original_name, original_parent in selected_objects:
+            # Select and make active
+            obj.select_set(True)
+            context.view_layer.objects.active = obj
+            
+            # Create rigidbody
+            bpy.ops.hyperfy.create_rigidbody()
+            
+            # Get the newly created rigidbody empty and rename it
+            new_empty = context.active_object
+            new_empty.name = original_name
+            
+            # If original had a parent, parent the new empty to it
+            if original_parent:
+                new_empty.parent = original_parent
+            
+            # Make sure trigger state is correctly set on the collider
+            for child in new_empty.children:
+                if child.name == "Collider":
+                    child["trigger"] = trigger_state
+            
+            created_count += 1
+            
+            # Deselect for next iteration
+            bpy.ops.object.select_all(action='DESELECT')
+        
+        self.report({'INFO'}, f"Created {created_count} rigidbodies")
+        return {'FINISHED'}
 
 class HYPERFY_OT_export_glb(Operator):
     """Export selected objects as GLB with custom properties"""
@@ -273,51 +317,6 @@ class HYPERFY_OT_export_all_glb(Operator):
         self.report({'INFO'}, f"Exported {exported_count} objects to GLB files")
         return {'FINISHED'}
 
-class HYPERFY_OT_create_multiple_rigidbodies(Operator):
-    """Create rigidbodies for all selected objects while maintaining hierarchy"""
-    bl_idname = "hyperfy.create_multiple_rigidbodies"
-    bl_label = "Create Multiple Rigidbodies"
-    bl_options = {'REGISTER', 'UNDO'}
-    
-    def execute(self, context):
-        # Store selected objects and their original parents
-        selected_objects = [(obj, obj.parent) for obj in context.selected_objects if obj.type == 'MESH']
-        
-        # Store current trigger state
-        trigger_state = context.scene.hyperfy_trigger
-        
-        # Deselect all objects
-        bpy.ops.object.select_all(action='DESELECT')
-        
-        created_count = 0
-        for obj, original_parent in selected_objects:
-            # Select and make active
-            obj.select_set(True)
-            context.view_layer.objects.active = obj
-            
-            # Create rigidbody
-            bpy.ops.hyperfy.create_rigidbody()
-            
-            # Get the newly created rigidbody empty
-            new_empty = context.active_object
-            
-            # If original had a parent, parent the new empty to it
-            if original_parent:
-                new_empty.parent = original_parent
-            
-            # Make sure trigger state is correctly set on the collider
-            for child in new_empty.children:
-                if child.name == "Collider":
-                    child["trigger"] = trigger_state
-            
-            created_count += 1
-            
-            # Deselect for next iteration
-            bpy.ops.object.select_all(action='DESELECT')
-        
-        self.report({'INFO'}, f"Created {created_count} rigidbodies")
-        return {'FINISHED'}
-
 class HYPERFY_PT_main_panel(Panel):
     """Hyperfy Tools Panel"""
     bl_label = "Hyperfy Tools"
@@ -328,203 +327,228 @@ class HYPERFY_PT_main_panel(Panel):
 
     def draw(self, context):
         layout = self.layout
+        active_obj = context.active_object
+        selected_objects = context.selected_objects
         
-        # Physics section
-        main_box = layout.box()
-        main_box.alert = True
-        main_box.label(text="⚡ PHYSICS SYSTEM ⚡", icon='PHYSICS')
+        # Get all selected rigidbody setups
+        rigidbody_objects = []
+        for obj in selected_objects:
+            if obj.get("node") == "rigidbody":
+                rigidbody_objects.append(obj)
+            elif obj.get("node") in ["Mesh", "collider"] and obj.parent:
+                if obj.parent.get("node") == "rigidbody" and obj.parent not in rigidbody_objects:
+                    rigidbody_objects.append(obj.parent)
         
-        # Rigidbody Settings with neon effect
-        rb_box = main_box.box()
-        rb_box.label(text="▸ RIGIDBODY", icon='OUTLINER_OB_EMPTY')
-        col = rb_box.column(align=True)
-        col.scale_y = 1.1
-        col.use_property_split = True
-        col.use_property_decorate = False  # No animation dots
-        col.prop(context.scene, "hyperfy_physics_type", text="")
-        col.prop(context.scene, "hyperfy_mass")
-        
-        # Mesh Settings with purple tint
-        mesh_box = main_box.box()
-        mesh_box.alert = True  # Will use purple color
-        mesh_box.label(text="▸ MESH", icon='MESH_DATA')
-        col = mesh_box.column(align=True)
-        row = col.row(align=True)
-        row.scale_y = 1.1
-        row.prop(context.scene, "hyperfy_cast_shadow")
-        row.prop(context.scene, "hyperfy_receive_shadow")
-        
-        # Collider Settings with blue tint
-        col_box = main_box.box()
-        col_box.alert = True  # Will use blue color
-        col_box.label(text="▸ COLLIDER", icon='MOD_MESHDEFORM')
-        col = col_box.column(align=True)
-        col.scale_y = 1.1
-        col.prop(context.scene, "hyperfy_collider_type", text="")
-        
-        # Show relevant properties based on collider type
-        if context.scene.hyperfy_collider_type == 'box':
-            box_col = col.column(align=True)
-            box_col.scale_y = 1.1
-            box_col.use_property_split = True
-            box_col.prop(context.scene, "hyperfy_box_width")
-            box_col.prop(context.scene, "hyperfy_box_height")
-            box_col.prop(context.scene, "hyperfy_box_depth")
-        elif context.scene.hyperfy_collider_type == 'sphere':
+        # Show details if any rigidbody setup is selected
+        if rigidbody_objects:
+            details_box = layout.box()
+            details_box.alert = True
+            if len(rigidbody_objects) > 1:
+                details_box.label(text=f"⚡ MULTIPLE RIGIDBODIES ({len(rigidbody_objects)}) ⚡", icon='PROPERTIES')
+            else:
+                details_box.label(text="⚡ RIGIDBODY DETAILS ⚡", icon='PROPERTIES')
+            
+            # Rigidbody properties
+            col = details_box.column(align=True)
+            col.scale_y = 1.1
             col.use_property_split = True
-            col.prop(context.scene, "hyperfy_sphere_radius")
+            
+            # Create operators for batch property editing
+            row = col.row(align=True)
+            row.label(text="Type:")
+            for type_option in [('static', "Static"), ('dynamic', "Dynamic"), ('kinematic', "Kinematic")]:
+                op = row.operator("hyperfy.set_rigidbody_type", text=type_option[1])
+                op.type = type_option[0]
+                op.target_objects = [obj.name for obj in rigidbody_objects]
+            
+            # Mass (use first object's value as default)
+            col.prop(rigidbody_objects[0], '["mass"]', text="Mass")
+            
+            # Get all mesh and collider children
+            all_mesh_objects = []
+            all_collider_objects = []
+            for rb in rigidbody_objects:
+                for child in rb.children:
+                    if child.get("node") == "Mesh":
+                        all_mesh_objects.append(child)
+                    elif child.get("node") == "collider":
+                        all_collider_objects.append(child)
+            
+            if all_mesh_objects:
+                # Mesh properties
+                mesh_box = details_box.box()
+                mesh_box.label(text="▸ MESH PROPERTIES", icon='MESH_DATA')
+                col = mesh_box.column(align=True)
+                row = col.row(align=True)
+                
+                # Create operators for batch mesh property editing
+                op = row.operator("hyperfy.set_mesh_property", text="Cast Shadow")
+                op.property_name = "castShadow"
+                op.target_objects = [obj.name for obj in all_mesh_objects]
+                
+                op = row.operator("hyperfy.set_mesh_property", text="Receive Shadow")
+                op.property_name = "receiveShadow"
+                op.target_objects = [obj.name for obj in all_mesh_objects]
+            
+            if all_collider_objects:
+                # Collider properties
+                col_box = details_box.box()
+                col_box.label(text="▸ COLLIDER PROPERTIES", icon='MOD_MESHDEFORM')
+                col = col_box.column(align=True)
+                row = col.row(align=True)
+                
+                # Create operators for batch collider property editing
+                op = row.operator("hyperfy.set_collider_property", text="Convex")
+                op.property_name = "convex"
+                op.target_objects = [obj.name for obj in all_collider_objects]
+                
+                op = row.operator("hyperfy.set_collider_property", text="Trigger")
+                op.property_name = "trigger"
+                op.target_objects = [obj.name for obj in all_collider_objects]
+            
+            details_box.separator()
         
-        col.separator()
-        row = col.row(align=True)
-        row.scale_y = 1.1
-        row.prop(context.scene, "hyperfy_convex", icon='MESH_ICOSPHERE')
-        row.prop(context.scene, "hyperfy_trigger", icon='GHOST_ENABLED')
+        # Show creation controls if nothing is selected or if selected object is not part of a rigidbody
+        if not active_obj or not rigidbody_objects:
+            # Physics section
+            main_box = layout.box()
+            main_box.alert = True
+            main_box.label(text="⚡ RIGIDBODY CREATION ⚡", icon='PHYSICS')
+            
+            # Rigidbody Settings with neon effect
+            rb_box = main_box.box()
+            rb_box.label(text="▸ RIGIDBODY", icon='OUTLINER_OB_EMPTY')
+            col = rb_box.column(align=True)
+            col.scale_y = 1.1
+            col.use_property_split = True
+            col.use_property_decorate = False  # No animation dots
+            col.prop(context.scene, "hyperfy_physics_type", text="")
+            col.prop(context.scene, "hyperfy_mass")
+            
+            # Mesh Settings with purple tint
+            mesh_box = main_box.box()
+            mesh_box.alert = True  # Will use purple color
+            mesh_box.label(text="▸ MESH", icon='MESH_DATA')
+            col = mesh_box.column(align=True)
+            row = col.row(align=True)
+            row.scale_y = 1.1
+            row.prop(context.scene, "hyperfy_cast_shadow")
+            row.prop(context.scene, "hyperfy_receive_shadow")
+            
+            # Collider Settings with blue tint
+            col_box = main_box.box()
+            col_box.alert = True  # Will use blue color
+            col_box.label(text="▸ COLLIDER", icon='MOD_MESHDEFORM')
+            col = col_box.column(align=True)
+            col.scale_y = 1.1
+            col.prop(context.scene, "hyperfy_collider_type", text="")
+            
+            # Show relevant properties based on collider type
+            if context.scene.hyperfy_collider_type == 'box':
+                box_col = col.column(align=True)
+                box_col.scale_y = 1.1
+                box_col.use_property_split = True
+                box_col.prop(context.scene, "hyperfy_box_width")
+                box_col.prop(context.scene, "hyperfy_box_height")
+                box_col.prop(context.scene, "hyperfy_box_depth")
+            elif context.scene.hyperfy_collider_type == 'sphere':
+                col.use_property_split = True
+                col.prop(context.scene, "hyperfy_sphere_radius")
+            
+            col.separator()
+            row = col.row(align=True)
+            row.scale_y = 1.1
+            row.prop(context.scene, "hyperfy_convex", icon='MESH_ICOSPHERE')
+            row.prop(context.scene, "hyperfy_trigger", icon='GHOST_ENABLED')
+            
+            # Create buttons with gradient effect
+            main_box.separator()
+            
+            # Single rigidbody creation
+            create_row = main_box.row(align=True)
+            create_row.scale_y = 1.8
+            create_row.operator("hyperfy.create_rigidbody", text="⚡ CREATE RIGIDBODY ⚡", icon='ADD')
+            
+            # Multiple rigidbody creation
+            create_multi_row = main_box.row(align=True)
+            create_multi_row.scale_y = 1.4
+            create_multi_row.operator("hyperfy.create_multiple_rigidbodies", 
+                text="⚡ CREATE MULTIPLE RIGIDBODIES ⚡", icon='GROUP')
         
-        # Create buttons with gradient effect
-        main_box.separator()
-        
-        # Single rigidbody creation
-        create_row = main_box.row(align=True)
-        create_row.scale_y = 1.8
-        create_row.operator("hyperfy.create_rigidbody", text="⚡ CREATE RIGIDBODY ⚡", icon='ADD')
-        
-        # Multiple rigidbody creation
-        create_multi_row = main_box.row(align=True)
-        create_multi_row.scale_y = 1.4
-        create_multi_row.operator("hyperfy.create_multiple_rigidbodies", 
-            text="⚡ CREATE MULTIPLE RIGIDBODIES ⚡", icon='GROUP')
-        
-        # Export section with gradient border
-        export_box = layout.box()
-        export_box.alert = True
-        export_box.label(text="▸ EXPORT OPTIONS", icon='EXPORT')
-        
-        # Single object export
-        row = export_box.row(align=True)
-        row.scale_y = 1.4
-        row.operator("hyperfy.export_glb", text="EXPORT OBJECT", icon='OBJECT_DATA')
-        
-        # Batch export
-        row = export_box.row(align=True)
-        row.scale_y = 1.4
-        row.operator("hyperfy.export_all_glb", text="EXPORT ALL OBJECTS", icon='PACKAGE')
-        
-        # Info text
-        info_box = export_box.box()
-        col = info_box.column(align=True)
-        col.scale_y = 0.8
-        col.label(text="Object: Export selected objects", icon='INFO')
-        col.label(text="All: Export each object separately", icon='INFO')
+        # Only show export section when viewing rigidbody details
+        if rigidbody_objects:
+            # Export section with gradient border
+            export_box = layout.box()
+            export_box.alert = True
+            export_box.label(text="▸ EXPORT OPTIONS", icon='EXPORT')
+            
+            # Single object export
+            row = export_box.row(align=True)
+            row.scale_y = 1.4
+            row.operator("hyperfy.export_glb", text="EXPORT OBJECT", icon='OBJECT_DATA')
+            
+            # Batch export
+            row = export_box.row(align=True)
+            row.scale_y = 1.4
+            row.operator("hyperfy.export_all_glb", text="EXPORT ALL OBJECTS", icon='PACKAGE')
+            
+            # Info text
+            info_box = export_box.box()
+            col = info_box.column(align=True)
+            col.scale_y = 0.8
+            col.label(text="Object: Export selected objects", icon='INFO')
+            col.label(text="All: Export each object separately", icon='INFO')
 
-classes = (
-    HYPERFY_OT_create_rigidbody,
-    HYPERFY_OT_create_multiple_rigidbodies,
-    HYPERFY_OT_export_glb,
-    HYPERFY_OT_export_all_glb,
-    HYPERFY_PT_main_panel,
-)
+# Add these new operators for batch editing
+class HYPERFY_OT_set_rigidbody_type(Operator):
+    """Set type for multiple rigidbodies"""
+    bl_idname = "hyperfy.set_rigidbody_type"
+    bl_label = "Set Rigidbody Type"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    type: bpy.props.StringProperty()
+    target_objects: bpy.props.StringProperty()
+    
+    def execute(self, context):
+        objects = self.target_objects.split(',')
+        for obj_name in objects:
+            obj = bpy.data.objects.get(obj_name)
+            if obj:
+                obj["type"] = self.type
+        return {'FINISHED'}
 
-def register():
-    # Remove icon loading code
-    bpy.types.Scene.hyperfy_physics_type = bpy.props.EnumProperty(
-        name="Type",
-        description="Physics type for the rigidbody",
-        items=[
-            ('static', "Static", "Non-moving collision object"),
-            ('dynamic', "Dynamic", "Physics-driven object"),
-            ('kinematic', "Kinematic", "Animated collision object")
-        ],
-        default='static'
-    )
-    bpy.types.Scene.hyperfy_mass = bpy.props.FloatProperty(
-        name="Mass",
-        description="Mass of the rigidbody",
-        default=1.0,
-        min=0.0,
-        max=1000.0
-    )
+class HYPERFY_OT_set_mesh_property(Operator):
+    """Set property for multiple mesh objects"""
+    bl_idname = "hyperfy.set_mesh_property"
+    bl_label = "Set Mesh Property"
+    bl_options = {'REGISTER', 'UNDO'}
     
-    # Mesh properties
-    bpy.types.Scene.hyperfy_cast_shadow = bpy.props.BoolProperty(
-        name="Cast Shadow",
-        description="Whether the mesh should cast shadows",
-        default=True
-    )
-    bpy.types.Scene.hyperfy_receive_shadow = bpy.props.BoolProperty(
-        name="Receive Shadow",
-        description="Whether the mesh should receive shadows",
-        default=True
-    )
+    property_name: bpy.props.StringProperty()
+    target_objects: bpy.props.StringProperty()
     
-    # Collider properties
-    bpy.types.Scene.hyperfy_collider_type = bpy.props.EnumProperty(
-        name="Collider Type",
-        description="Type of collision shape",
-        items=[
-            ('box', "Box", "Box collision shape"),
-            ('sphere', "Sphere", "Sphere collision shape"),
-            ('geometry', "Geometry", "Use exact mesh geometry for collision (complex)"),
-            ('simple', "Simple Collision", "Generate simplified collision from mesh")
-        ],
-        default='box'
-    )
-    bpy.types.Scene.hyperfy_convex = bpy.props.BoolProperty(
-        name="Convex",
-        description="Use convex collision shape (more performant, allows dynamic-dynamic collisions)",
-        default=True
-    )
-    bpy.types.Scene.hyperfy_trigger = bpy.props.BoolProperty(
-        name="Trigger",
-        description="Make this a trigger volume (no physical collisions)",
-        default=False
-    )
-    
-    # Box collider size properties
-    bpy.types.Scene.hyperfy_box_width = bpy.props.FloatProperty(
-        name="Width",
-        description="Width of box collider",
-        default=1.0,
-        min=0.01
-    )
-    bpy.types.Scene.hyperfy_box_height = bpy.props.FloatProperty(
-        name="Height", 
-        description="Height of box collider",
-        default=1.0,
-        min=0.01
-    )
-    bpy.types.Scene.hyperfy_box_depth = bpy.props.FloatProperty(
-        name="Depth",
-        description="Depth of box collider",
-        default=1.0,
-        min=0.01
-    )
-    
-    # Sphere collider properties
-    bpy.types.Scene.hyperfy_sphere_radius = bpy.props.FloatProperty(
-        name="Radius",
-        description="Radius of sphere collider",
-        default=0.5,
-        min=0.01
-    )
-    
-    for cls in classes:
-        bpy.utils.register_class(cls)
+    def execute(self, context):
+        objects = self.target_objects.split(',')
+        for obj_name in objects:
+            obj = bpy.data.objects.get(obj_name)
+            if obj:
+                # Toggle the property
+                obj[self.property_name] = not obj.get(self.property_name, True)
+        return {'FINISHED'}
 
-def unregister():
-    # Remove icon unloading code
-    for cls in classes:
-        bpy.utils.unregister_class(cls)
-    del bpy.types.Scene.hyperfy_physics_type
-    del bpy.types.Scene.hyperfy_mass
-    del bpy.types.Scene.hyperfy_cast_shadow
-    del bpy.types.Scene.hyperfy_receive_shadow
-    del bpy.types.Scene.hyperfy_collider_type
-    del bpy.types.Scene.hyperfy_convex
-    del bpy.types.Scene.hyperfy_trigger
-    del bpy.types.Scene.hyperfy_box_width
-    del bpy.types.Scene.hyperfy_box_height
-    del bpy.types.Scene.hyperfy_box_depth
-    del bpy.types.Scene.hyperfy_sphere_radius
-
-if __name__ == "__main__":
-    register() 
+class HYPERFY_OT_set_collider_property(Operator):
+    """Set property for multiple collider objects"""
+    bl_idname = "hyperfy.set_collider_property"
+    bl_label = "Set Collider Property"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    property_name: bpy.props.StringProperty()
+    target_objects: bpy.props.StringProperty()
+    
+    def execute(self, context):
+        objects = self.target_objects.split(',')
+        for obj_name in objects:
+            obj = bpy.data.objects.get(obj_name)
+            if obj:
+                # Toggle the property
+                obj[self.property_name] = not obj.get(self.property_name, True)
+        return {'FINISHED'} 
