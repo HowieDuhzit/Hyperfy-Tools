@@ -10,6 +10,7 @@ bl_info = {
     "category": "3D View",
 }
 
+import bpy
 from . import HyperfyTools
 
 def register():

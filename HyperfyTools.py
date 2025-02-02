@@ -7,6 +7,8 @@ custom_icons = None
 
 def setup_collider(obj, context):
     """Setup common collider properties"""
+    props = context.scene.hyperfy_props  # Get the property group
+    
     obj.name = "Collider"
     obj.display_type = 'WIRE'
     
@@ -16,8 +18,8 @@ def setup_collider(obj, context):
     
     # Add only essential collider properties
     obj["node"] = "collider"
-    obj["convex"] = context.scene.hyperfy_convex
-    obj["trigger"] = context.scene.hyperfy_trigger
+    obj["convex"] = props.convex  # Use props instead of scene
+    obj["trigger"] = props.trigger  # Use props instead of scene
     
     return obj
 
@@ -27,21 +29,25 @@ def is_collider(obj):
 
 def create_box_collider(context):
     """Create a box collider"""
+    props = context.scene.hyperfy_props  # Get the property group
+    
     bpy.ops.mesh.primitive_cube_add(size=2.0, location=(0, 0, 0))
     collider = context.active_object
     setup_collider(collider, context)
     
-    # Set box size
-    collider.scale.x = context.scene.hyperfy_box_width
-    collider.scale.y = context.scene.hyperfy_box_height
-    collider.scale.z = context.scene.hyperfy_box_depth
+    # Set box size using props
+    collider.scale.x = props.box_width
+    collider.scale.y = props.box_height
+    collider.scale.z = props.box_depth
     
     return collider
 
 def create_sphere_collider(context):
     """Create a sphere collider"""
+    props = context.scene.hyperfy_props  # Get the property group
+    
     bpy.ops.mesh.primitive_uv_sphere_add(
-        radius=context.scene.hyperfy_sphere_radius,
+        radius=props.sphere_radius,  # Use props
         segments=32,
         ring_count=16,
         location=(0, 0, 0)
@@ -657,6 +663,61 @@ class HYPERFY_PT_rig_converter_panel(Panel):
         info_col.label(text="Select armature before converting", icon='INFO')
         info_col.label(text="Converts between naming conventions", icon='KEYTYPE_KEYFRAME_VEC')
 
+class HYPERFY_PT_credits_panel(Panel):
+    """Credits Panel"""
+    bl_label = "Credits"
+    bl_idname = "HYPERFY_PT_credits_panel"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'Hyperfy'
+    bl_options = {'DEFAULT_CLOSED'}
+    
+    def draw(self, context):
+        layout = self.layout
+        
+        # Main container with neon effect
+        main_box = layout.box()
+        main_box.alert = True
+        
+        # Developers section
+        dev_title = main_box.row(align=True)
+        dev_title.scale_y = 1.2
+        dev_title.alignment = 'CENTER'
+        dev_title.label(text="⚡ DEVELOPERS ⚡")
+        
+        # Howie's section
+        dev_box = main_box.box()
+        col = dev_box.column(align=True)
+        col.scale_y = 0.9
+        col.label(text="Howie Duhzit", icon='USER')
+        
+        # Links
+        links = col.column(align=True)
+        links.scale_y = 0.8
+        links.operator("wm.url_open", text="GitHub", icon='FILE_SCRIPT').url = "https://github.com/HowieDuhzit"
+        links.operator("wm.url_open", text="X", icon='X').url = "https://x.com/HowieDuhzit"
+        links.operator("wm.url_open", text="Blender Extensions", icon='BLENDER').url = "https://extensions.blender.org/author/25892/"
+        links.label(text="Discord: howieduhzit", icon='PLUGIN')
+        
+        # Engine title
+        eng_title = main_box.row(align=True)
+        eng_title.scale_y = 1.2
+        eng_title.alignment = 'CENTER'
+        eng_title.label(text="⚡ ENGINE ⚡")
+        
+        # Engine section
+        eng_box = main_box.box()
+        col = eng_box.column(align=True)
+        col.scale_y = 0.9
+        col.label(text="Hyperfy Engine", icon='WORLD')
+        
+        # Engine Links
+        links = col.column(align=True)
+        links.scale_y = 0.8
+        links.operator("wm.url_open", text="Website", icon='WORLD').url = "https://hyperfy.xyz/"
+        links.operator("wm.url_open", text="X", icon='X').url = "https://x.com/hyperfy_io"
+        links.operator("wm.url_open", text="GitHub", icon='FILE_SCRIPT').url = "https://t.co/j3o72CL2I9"
+
 class OBJECT_OT_mixamo_to_vrm(Operator):
     """Convert Mixamo rig to VRM rig"""
     bl_idname = "object.mixamo_to_vrm"
@@ -808,6 +869,7 @@ classes = (
     HYPERFY_PT_rig_converter_panel,
     OBJECT_OT_mixamo_to_vrm,
     OBJECT_OT_vrm_to_mixamo,
+    HYPERFY_PT_credits_panel,
 )
 
 def register():
