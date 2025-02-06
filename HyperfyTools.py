@@ -109,7 +109,7 @@ class HyperfyProperties(bpy.types.PropertyGroup):
     )
     convex: bpy.props.BoolProperty(
         name="Convex",
-        default=True
+        default=False
     )
     trigger: bpy.props.BoolProperty(
         name="Trigger",
@@ -130,7 +130,7 @@ class HyperfyProperties(bpy.types.PropertyGroup):
             ('simple', 'Simple', 'Simplified mesh collider'),
             ('geometry', 'Geometry', 'Full geometry collider')
         ],
-        default='box',
+        default='geometry',
         name="Collider Type"
     )
     box_width: bpy.props.FloatProperty(
@@ -448,6 +448,49 @@ class OBJECT_OT_set_collider_property(Operator):
                 obj[self.property_name] = not obj.get(self.property_name, True)
         return {'FINISHED'}
 
+class OBJECT_OT_add_snap_point(Operator):
+    """Add a snap point empty object"""
+    bl_idname = "object.add_snap_point"
+    bl_label = "Add Snap Point"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    def execute(self, context):
+        # Create empty object
+        empty = bpy.data.objects.new("SnapPoint", None)
+        empty.empty_display_type = 'PLAIN_AXES'  # Simple dot display
+        empty.empty_display_size = 0.1  # Make it small and subtle
+        
+        # Add to scene
+        context.scene.collection.objects.link(empty)
+        
+        # Add custom property
+        empty["node"] = "snap"
+        
+        # Find rigidbody parent if a rigidbody setup is selected
+        rigidbody_parent = None
+        active_obj = context.active_object
+        
+        if active_obj:
+            if active_obj.get("node") == "rigidbody":
+                rigidbody_parent = active_obj
+            elif active_obj.get("node") in ["Mesh", "collider"] and active_obj.parent:
+                if active_obj.parent.get("node") == "rigidbody":
+                    rigidbody_parent = active_obj.parent
+        
+        # Parent to rigidbody if found
+        if rigidbody_parent:
+            empty.parent = rigidbody_parent
+            # Place at parent's location
+            empty.matrix_world = rigidbody_parent.matrix_world
+        
+        # Select and make active
+        bpy.ops.object.select_all(action='DESELECT')
+        empty.select_set(True)
+        context.view_layer.objects.active = empty
+        
+        self.report({'INFO'}, "Added snap point")
+        return {'FINISHED'}
+
 class HYPERFY_PT_main_panel(Panel):
     """Hyperfy Tools Panel"""
     bl_label = "Hyperfy Tools"
@@ -544,19 +587,24 @@ class HYPERFY_PT_main_panel(Panel):
                 text="⚡ CREATE MULTIPLE RIGIDBODIES ⚡", icon='GROUP')
         
         else:  # Show details and export if rigidbody is selected
-            # Details section
-            details_box = layout.box()
-            details_box.alert = True
-            details_box.label(text="⚡ RIGIDBODY DETAILS ⚡", icon='PROPERTIES')
+            # Rigidbody Details section
+            rb_box = layout.box()
+            rb_box.alert = True
+            rb_box.label(text="⚡ RIGIDBODY DETAILS ⚡", icon='RIGID_BODY')
             
-            # Rigidbody properties
-            col = details_box.column(align=True)
-            col.scale_y = 1.1
-            col.use_property_split = True
+            # Physics type dropdown
+            row = rb_box.row(align=True)
+            row.prop(props, "physics_type", text="Type")
             
-            # Type and mass
-            col.prop(rigidbody_objects[0], '["type"]', text="Type")
-            col.prop(rigidbody_objects[0], '["mass"]', text="Mass")
+            # Mass (only show for dynamic type)
+            if props.physics_type == 'dynamic':
+                row = rb_box.row(align=True)
+                row.prop(props, "mass", text="Mass")
+            
+            # Apply button
+            row = rb_box.row(align=True)
+            row.scale_y = 1.4
+            row.operator("object.set_rigidbody_type", text="APPLY", icon='CHECKMARK')
             
             # Find mesh and collider children
             mesh_obj = None
@@ -569,7 +617,7 @@ class HYPERFY_PT_main_panel(Panel):
             
             if mesh_obj:
                 # Mesh properties
-                mesh_box = details_box.box()
+                mesh_box = rb_box.box()
                 mesh_box.label(text="▸ MESH PROPERTIES", icon='MESH_DATA')
                 col = mesh_box.column(align=True)
                 row = col.row(align=True)
@@ -578,14 +626,14 @@ class HYPERFY_PT_main_panel(Panel):
             
             if collider_obj:
                 # Collider properties
-                col_box = details_box.box()
+                col_box = rb_box.box()
                 col_box.label(text="▸ COLLIDER PROPERTIES", icon='MOD_MESHDEFORM')
                 col = col_box.column(align=True)
                 row = col.row(align=True)
                 row.prop(collider_obj, '["convex"]', text="Convex")
                 row.prop(collider_obj, '["trigger"]', text="Trigger")
             
-            details_box.separator()
+            rb_box.separator()
             
             # Export section
             export_box = layout.box()
@@ -608,6 +656,22 @@ class HYPERFY_PT_main_panel(Panel):
             col.scale_y = 0.8
             col.label(text="Object: Export selected objects", icon='INFO')
             col.label(text="All: Export each object separately", icon='INFO')
+
+        # Snap Points section
+        snap_box = layout.box()
+        snap_box.alert = True
+        snap_box.label(text="⚡ SNAP POINTS ⚡", icon='EMPTY_ARROWS')
+        
+        # Add snap point button
+        row = snap_box.row(align=True)
+        row.scale_y = 1.4
+        row.operator("object.add_snap_point", text="ADD SNAP POINT", icon='ADD')
+        
+        # Info text
+        info = snap_box.box()
+        col = info.column(align=True)
+        col.scale_y = 0.8
+        col.label(text="All snap points snap to each other", icon='INFO')
 
 class HYPERFY_PT_rig_converter_panel(Panel):
     """Rig Converter Panel for converting between Mixamo and VRM rigs"""
@@ -694,9 +758,9 @@ class HYPERFY_PT_credits_panel(Panel):
         # Links
         links = col.column(align=True)
         links.scale_y = 0.8
+        links.operator("wm.url_open", text="Blender Extensions", icon='BLENDER').url = "https://extensions.blender.org/author/25892/"
         links.operator("wm.url_open", text="GitHub", icon='FILE_SCRIPT').url = "https://github.com/HowieDuhzit"
         links.operator("wm.url_open", text="X", icon='X').url = "https://x.com/HowieDuhzit"
-        links.operator("wm.url_open", text="Blender Extensions", icon='BLENDER').url = "https://extensions.blender.org/author/25892/"
         links.label(text="Discord: howieduhzit", icon='PLUGIN')
         
         # Engine title
@@ -714,9 +778,10 @@ class HYPERFY_PT_credits_panel(Panel):
         # Engine Links
         links = col.column(align=True)
         links.scale_y = 0.8
+        links.operator("wm.url_open", text="GitHub", icon='FILE_SCRIPT').url = "https://t.co/j3o72CL2I9"
         links.operator("wm.url_open", text="Website", icon='WORLD').url = "https://hyperfy.xyz/"
         links.operator("wm.url_open", text="X", icon='X').url = "https://x.com/hyperfy_io"
-        links.operator("wm.url_open", text="GitHub", icon='FILE_SCRIPT').url = "https://t.co/j3o72CL2I9"
+        
 
 class OBJECT_OT_mixamo_to_vrm(Operator):
     """Convert Mixamo rig to VRM rig"""
@@ -870,6 +935,7 @@ classes = (
     OBJECT_OT_mixamo_to_vrm,
     OBJECT_OT_vrm_to_mixamo,
     HYPERFY_PT_credits_panel,
+    OBJECT_OT_add_snap_point,
 )
 
 def register():
