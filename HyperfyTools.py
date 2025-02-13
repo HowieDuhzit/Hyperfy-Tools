@@ -91,6 +91,16 @@ def create_simple_collider(obj, context):
     
     return collider
 
+def update_rigidbody_type(self, context):
+    active_obj = context.active_object
+    if active_obj and active_obj.get("node") == "rigidbody":
+        active_obj["type"] = self.physics_type
+
+def update_rigidbody_mass(self, context):
+    active_obj = context.active_object
+    if active_obj and active_obj.get("node") == "rigidbody":
+        active_obj["mass"] = self.mass
+
 # Create a PropertyGroup to collect all properties
 class HyperfyProperties(bpy.types.PropertyGroup):
     physics_type: bpy.props.EnumProperty(
@@ -100,12 +110,14 @@ class HyperfyProperties(bpy.types.PropertyGroup):
             ('kinematic', 'Kinematic', 'Object is controlled by animation')
         ],
         default='dynamic',
-        name="Physics Type"
+        name="Physics Type",
+        update=update_rigidbody_type  # Add update callback
     )
     mass: bpy.props.FloatProperty(
         name="Mass",
         default=1.0,
-        min=0.0
+        min=0.0,
+        update=update_rigidbody_mass  # Add update callback
     )
     convex: bpy.props.BoolProperty(
         name="Convex",
@@ -161,6 +173,88 @@ class OBJECT_OT_create_rigidbody(Operator):
     bl_label = "Create Rigidbody"
     bl_options = {'REGISTER', 'UNDO'}
     
+    def process_hierarchy(self, context, obj, parent_empty=None):
+        """Process object and its children recursively"""
+        props = context.scene.hyperfy_props
+        processed_objects = []
+        
+        # Process current object if it's a mesh
+        if obj.type == 'MESH':
+            # Store original world location and name
+            orig_name = obj.name
+            orig_world_location = obj.matrix_world.to_translation()
+            
+            # Create empty parent at original world location
+            empty = bpy.data.objects.new(orig_name, None)
+            empty.empty_display_type = 'PLAIN_AXES'
+            empty.empty_display_size = 1
+            empty.matrix_world.translation = orig_world_location
+            
+            # Add to the same collections as the original object
+            for collection in obj.users_collection:
+                collection.objects.link(empty)
+            
+            # Parent to previous rigidbody if exists
+            if parent_empty:
+                empty.parent = parent_empty
+                # Update location to maintain world position after parenting
+                empty.matrix_world.translation = orig_world_location
+            
+            # Create mesh copy
+            mesh_obj = obj.copy()
+            mesh_obj.data = obj.data.copy()
+            mesh_obj.name = "Mesh"
+            # Add to the same collections as the original object
+            for collection in obj.users_collection:
+                collection.objects.link(mesh_obj)
+            
+            # Reset local transform since it will be parented
+            mesh_obj.location = (0, 0, 0)
+            mesh_obj.rotation_euler = (0, 0, 0)
+            mesh_obj.scale = (1, 1, 1)
+            
+            # Add mesh properties
+            mesh_obj["castShadow"] = props.cast_shadow
+            mesh_obj["receiveShadow"] = props.receive_shadow
+            mesh_obj["node"] = "Mesh"
+            
+            # Create appropriate collider
+            if props.collider_type == 'box':
+                collider = create_box_collider(context)
+            elif props.collider_type == 'sphere':
+                collider = create_sphere_collider(context)
+            elif props.collider_type == 'simple':
+                collider = create_simple_collider(obj, context)
+            else:  # geometry
+                collider = obj.copy()
+                collider.data = obj.data.copy()
+                # Add to the same collections as the original object
+                for collection in obj.users_collection:
+                    collection.objects.link(collider)
+                # Reset local transform since it will be parented
+                collider.location = (0, 0, 0)
+                collider.rotation_euler = (0, 0, 0)
+                collider.scale = (1, 1, 1)
+                setup_collider(collider, context)
+            
+            # Add rigidbody properties
+            empty["node"] = "rigidbody"
+            empty["mass"] = props.mass
+            empty["type"] = props.physics_type
+            
+            # Parent objects to empty
+            mesh_obj.parent = empty
+            collider.parent = empty
+            
+            processed_objects.append(obj)
+            
+            # Process all children recursively
+            for child in obj.children:
+                child_processed = self.process_hierarchy(context, child, empty)
+                processed_objects.extend(child_processed)
+        
+        return processed_objects
+    
     def execute(self, context):
         props = context.scene.hyperfy_props
         selected_obj = context.active_object
@@ -171,71 +265,12 @@ class OBJECT_OT_create_rigidbody(Operator):
             mesh_obj = context.active_object
             mesh_obj.name = "Mesh"
             collider = create_box_collider(context)
-        else:
-            # Store original name and location
-            orig_name = selected_obj.name
-            orig_location = selected_obj.location.copy()
-            orig_parent = selected_obj.parent
             
-            # Create empty parent at original location with original name
-            empty = bpy.data.objects.new(orig_name, None)
+            # Create empty parent
+            empty = bpy.data.objects.new("Rigidbody", None)
             empty.empty_display_type = 'PLAIN_AXES'
             empty.empty_display_size = 1
-            empty.location = orig_location
             context.scene.collection.objects.link(empty)
-            
-            # Check if selected object is already a collider
-            if is_collider(selected_obj):
-                # Create mesh from collider
-                mesh_obj = selected_obj.copy()
-                mesh_obj.data = selected_obj.data.copy()
-                mesh_obj.name = "Mesh"
-                context.scene.collection.objects.link(mesh_obj)
-                mesh_obj.location = (0, 0, 0)
-                mesh_obj.display_type = 'TEXTURED'  # Reset display type
-                
-                # Create collider from existing collider
-                collider = selected_obj.copy()
-                collider.data = selected_obj.data.copy()
-                context.scene.collection.objects.link(collider)
-                collider.location = (0, 0, 0)
-                setup_collider(collider, context)
-            else:
-                # Create mesh from regular object
-                mesh_obj = selected_obj.copy()
-                mesh_obj.data = selected_obj.data.copy()
-                mesh_obj.name = "Mesh"
-                context.scene.collection.objects.link(mesh_obj)
-                mesh_obj.location = (0, 0, 0)
-                
-                # Create appropriate collider
-                if props.collider_type == 'box':
-                    collider = create_box_collider(context)
-                elif props.collider_type == 'sphere':
-                    collider = create_sphere_collider(context)
-                elif props.collider_type == 'simple':
-                    collider = create_simple_collider(selected_obj, context)
-                else:  # geometry
-                    collider = selected_obj.copy()
-                    collider.data = selected_obj.data.copy()
-                    context.scene.collection.objects.link(collider)
-                    collider.location = (0, 0, 0)
-                    setup_collider(collider, context)
-            
-            # Add mesh properties
-            mesh_obj["castShadow"] = props.cast_shadow
-            mesh_obj["receiveShadow"] = props.receive_shadow
-            mesh_obj["node"] = "Mesh"
-            
-            # Delete original object and its hierarchy
-            if orig_parent and orig_parent.get("node") == "rigidbody":
-                # If part of existing rigidbody setup, delete the whole setup
-                for child in orig_parent.children[:]:  # Use slice to avoid modification during iteration
-                    bpy.data.objects.remove(child, do_unlink=True)
-                bpy.data.objects.remove(orig_parent, do_unlink=True)
-            else:
-                # Just delete the original object
-                bpy.data.objects.remove(selected_obj, do_unlink=True)
             
             # Add rigidbody properties
             empty["node"] = "rigidbody"
@@ -246,56 +281,144 @@ class OBJECT_OT_create_rigidbody(Operator):
             mesh_obj.parent = empty
             collider.parent = empty
             
-            # Select the empty
+        else:
+            # Process hierarchy and get processed objects and top empty
+            processed_objects, top_empty = self.process_hierarchy(context, selected_obj)
+            
+            if not processed_objects:
+                self.report({'WARNING'}, "No valid objects to process")
+                return {'CANCELLED'}
+            
+            # Delete all processed original objects
             bpy.ops.object.select_all(action='DESELECT')
-            empty.select_set(True)
-            context.view_layer.objects.active = empty
+            for obj in processed_objects:
+                obj.select_set(True)
+                if obj.parent and obj.parent.get("node") == "rigidbody":
+                    obj.parent.select_set(True)
+            bpy.ops.object.delete()
+            
+            # Select the top empty
+            if top_empty:
+                bpy.ops.object.select_all(action='DESELECT')
+                top_empty.select_set(True)
+                context.view_layer.objects.active = top_empty
         
         return {'FINISHED'}
 
-class OBJECT_OT_create_multiple_rigidbodies(Operator):
-    """Create rigidbodies for all selected objects while maintaining hierarchy"""
-    bl_idname = "object.create_multiple_rigidbodies"
-    bl_label = "Create Multiple Rigidbodies"
+class OBJECT_OT_create_rigidbodies(Operator):
+    """Create rigidbodies for selected objects while maintaining hierarchy"""
+    bl_idname = "object.create_rigidbodies"
+    bl_label = "Create Rigidbodies"
     bl_options = {'REGISTER', 'UNDO'}
     
-    def execute(self, context):
+    def process_hierarchy(self, context, obj, parent_empty=None):
+        """Process object and its children recursively"""
         props = context.scene.hyperfy_props
-        # Store selected objects, their original names and parents
-        selected_objects = [(obj, obj.name, obj.parent) for obj in context.selected_objects if obj.type == 'MESH']
+        processed_objects = []
         
-        # Store current trigger state
-        trigger_state = props.trigger
+        # Process current object if it's a mesh
+        if obj.type == 'MESH':
+            # Store original world location and name
+            orig_name = obj.name
+            orig_world_location = obj.matrix_world.to_translation()
+            
+            # Create empty parent at original world location
+            empty = bpy.data.objects.new(orig_name, None)
+            empty.empty_display_type = 'PLAIN_AXES'
+            empty.empty_display_size = 1
+            empty.matrix_world.translation = orig_world_location
+            
+            # Add to the same collections as the original object
+            for collection in obj.users_collection:
+                collection.objects.link(empty)
+            
+            # Parent to previous rigidbody if exists
+            if parent_empty:
+                empty.parent = parent_empty
+                # Update location to maintain world position after parenting
+                empty.matrix_world.translation = orig_world_location
+            
+            # Create mesh copy
+            mesh_obj = obj.copy()
+            mesh_obj.data = obj.data.copy()
+            mesh_obj.name = "Mesh"
+            # Add to the same collections as the original object
+            for collection in obj.users_collection:
+                collection.objects.link(mesh_obj)
+            
+            # Reset local transform since it will be parented
+            mesh_obj.location = (0, 0, 0)
+            mesh_obj.rotation_euler = (0, 0, 0)
+            mesh_obj.scale = (1, 1, 1)
+            
+            # Add mesh properties
+            mesh_obj["castShadow"] = props.cast_shadow
+            mesh_obj["receiveShadow"] = props.receive_shadow
+            mesh_obj["node"] = "Mesh"
+            
+            # Create appropriate collider
+            if props.collider_type == 'box':
+                collider = create_box_collider(context)
+            elif props.collider_type == 'sphere':
+                collider = create_sphere_collider(context)
+            elif props.collider_type == 'simple':
+                collider = create_simple_collider(obj, context)
+            else:  # geometry
+                collider = obj.copy()
+                collider.data = obj.data.copy()
+                # Add to the same collections as the original object
+                for collection in obj.users_collection:
+                    collection.objects.link(collider)
+                # Reset local transform since it will be parented
+                collider.location = (0, 0, 0)
+                collider.rotation_euler = (0, 0, 0)
+                collider.scale = (1, 1, 1)
+                setup_collider(collider, context)
+            
+            # Add rigidbody properties
+            empty["node"] = "rigidbody"
+            empty["mass"] = props.mass
+            empty["type"] = props.physics_type
+            
+            # Parent objects to empty
+            mesh_obj.parent = empty
+            collider.parent = empty
+            
+            processed_objects.append(obj)
+            
+            # Process all children recursively
+            for child in obj.children:
+                child_processed = self.process_hierarchy(context, child, empty)
+                processed_objects.extend(child_processed)
         
-        # Deselect all objects
-        bpy.ops.object.select_all(action='DESELECT')
+        return processed_objects
+    
+    def execute(self, context):
+        # Store selected objects that are not children of other selected objects
+        top_level_objects = [obj for obj in context.selected_objects 
+                           if obj.type == 'MESH' and 
+                           (not obj.parent or obj.parent not in context.selected_objects)]
         
+        if not top_level_objects:
+            self.report({'WARNING'}, "No valid objects selected")
+            return {'CANCELLED'}
+        
+        # Process each top-level object and collect all processed objects
+        all_processed_objects = []
         created_count = 0
-        for obj, original_name, original_parent in selected_objects:
-            # Select and make active
-            obj.select_set(True)
-            context.view_layer.objects.active = obj
-            
-            # Create rigidbody
-            bpy.ops.object.create_rigidbody()
-            
-            # Get the newly created rigidbody empty and rename it
-            new_empty = context.active_object
-            new_empty.name = original_name
-            
-            # If original had a parent, parent the new empty to it
-            if original_parent:
-                new_empty.parent = original_parent
-            
-            # Make sure trigger state is correctly set on the collider
-            for child in new_empty.children:
-                if child.name == "Collider":
-                    child["trigger"] = trigger_state
-            
-            created_count += 1
-            
-            # Deselect for next iteration
+        for obj in top_level_objects:
+            processed = self.process_hierarchy(context, obj)
+            if processed:
+                all_processed_objects.extend(processed)
+                created_count += 1  # Count top-level rigidbodies created
+        
+        # Delete all processed original objects
+        if all_processed_objects:
             bpy.ops.object.select_all(action='DESELECT')
+            for obj in all_processed_objects:
+                if isinstance(obj, bpy.types.Object):  # Ensure it's a valid Blender object
+                    obj.select_set(True)
+            bpy.ops.object.delete()
         
         self.report({'INFO'}, f"Created {created_count} rigidbodies")
         return {'FINISHED'}
@@ -455,21 +578,44 @@ class OBJECT_OT_add_snap_point(Operator):
     bl_options = {'REGISTER', 'UNDO'}
     
     def execute(self, context):
-        # Create empty object
-        empty = bpy.data.objects.new("SnapPoint", None)
-        empty.empty_display_type = 'PLAIN_AXES'  # Simple dot display
-        empty.empty_display_size = 0.1  # Make it small and subtle
+        # Get active object and store current mode
+        active_obj = context.active_object
+        original_mode = context.mode
+        locations = [(0, 0, 0)]  # Default location
         
-        # Add to scene
-        context.scene.collection.objects.link(empty)
+        # Check if we're in edit mode with a mesh object
+        if active_obj and active_obj.type == 'MESH' and context.mode == 'EDIT_MESH':
+            # Get the selected vertex locations
+            bpy.ops.object.mode_set(mode='OBJECT')  # Need to toggle to object mode to get selection
+            selected_verts = [v for v in active_obj.data.vertices if v.select]
+            if selected_verts:
+                # Get world space locations of all selected vertices
+                world_matrix = active_obj.matrix_world
+                locations = [world_matrix @ v.co.copy() for v in selected_verts]
         
-        # Add custom property
-        empty["node"] = "snap"
+        # Ensure we're in object mode for creating empties
+        if original_mode != 'OBJECT':
+            bpy.ops.object.mode_set(mode='OBJECT')
+        
+        created_empties = []
+        # Create empty objects at each location
+        for i, location in enumerate(locations):
+            # Create empty object at the determined location
+            empty = bpy.data.objects.new(f"SnapPoint.{i+1:03d}", None)
+            empty.empty_display_type = 'SPHERE'
+            empty.empty_display_size = 0.2
+            empty.location = location
+            
+            # Add to scene
+            context.scene.collection.objects.link(empty)
+            
+            # Add custom property
+            empty["node"] = "snap"
+            
+            created_empties.append(empty)
         
         # Find rigidbody parent if a rigidbody setup is selected
         rigidbody_parent = None
-        active_obj = context.active_object
-        
         if active_obj:
             if active_obj.get("node") == "rigidbody":
                 rigidbody_parent = active_obj
@@ -477,18 +623,51 @@ class OBJECT_OT_add_snap_point(Operator):
                 if active_obj.parent.get("node") == "rigidbody":
                     rigidbody_parent = active_obj.parent
         
-        # Parent to rigidbody if found
+        # Parent all created empties to rigidbody if found
         if rigidbody_parent:
-            empty.parent = rigidbody_parent
-            # Place at parent's location
-            empty.matrix_world = rigidbody_parent.matrix_world
+            for empty in created_empties:
+                world_loc = empty.location.copy()  # Store world location
+                empty.parent = rigidbody_parent
+                # Convert world location to local space relative to parent
+                empty.location = rigidbody_parent.matrix_world.inverted() @ world_loc
         
-        # Select and make active
+        # Select all created empties and make the last one active
         bpy.ops.object.select_all(action='DESELECT')
-        empty.select_set(True)
-        context.view_layer.objects.active = empty
+        for empty in created_empties:
+            empty.select_set(True)
+        if created_empties:
+            context.view_layer.objects.active = created_empties[-1]
         
-        self.report({'INFO'}, "Added snap point")
+        # Restore original mode if it was edit mode and we have a mesh object
+        if original_mode == 'EDIT_MESH' and active_obj and active_obj.type == 'MESH':
+            # Restore the original active object
+            context.view_layer.objects.active = active_obj
+            active_obj.select_set(True)
+            bpy.ops.object.mode_set(mode='EDIT')
+        
+        self.report({'INFO'}, f"Added {len(created_empties)} snap point{'s' if len(created_empties) > 1 else ''}")
+        return {'FINISHED'}
+
+def get_physics_types(self, context):
+    return [
+        ('dynamic', 'Dynamic', 'Object is affected by physics'),
+        ('static', 'Static', 'Object is immovable'),
+        ('kinematic', 'Kinematic', 'Object is controlled by animation')
+    ]
+
+class OBJECT_OT_update_rigidbody_property(Operator):
+    """Update rigidbody properties"""
+    bl_idname = "object.update_rigidbody_property"
+    bl_label = "Update Rigidbody Property"
+    bl_options = {'INTERNAL'}
+    
+    property_name: bpy.props.StringProperty()
+    property_value: bpy.props.StringProperty()
+    
+    def execute(self, context):
+        active_obj = context.active_object
+        if active_obj and active_obj.get("node") == "rigidbody":
+            active_obj[self.property_name] = self.property_value
         return {'FINISHED'}
 
 class HYPERFY_PT_main_panel(Panel):
@@ -572,19 +751,13 @@ class HYPERFY_PT_main_panel(Panel):
             row.prop(props, "convex", icon='MESH_ICOSPHERE')
             row.prop(props, "trigger", icon='GHOST_ENABLED')
             
-            # Create buttons with gradient effect
+            # Create button with gradient effect
             main_box.separator()
             
-            # Single rigidbody creation
+            # Rigidbody creation
             create_row = main_box.row(align=True)
             create_row.scale_y = 1.8
-            create_row.operator("object.create_rigidbody", text="⚡ CREATE RIGIDBODY ⚡", icon='ADD')
-            
-            # Multiple rigidbody creation
-            create_multi_row = main_box.row(align=True)
-            create_multi_row.scale_y = 1.4
-            create_multi_row.operator("object.create_multiple_rigidbodies", 
-                text="⚡ CREATE MULTIPLE RIGIDBODIES ⚡", icon='GROUP')
+            create_row.operator("object.create_rigidbodies", text="⚡ CREATE RIGIDBODIES ⚡", icon='ADD')
         
         else:  # Show details and export if rigidbody is selected
             # Rigidbody Details section
@@ -592,20 +765,18 @@ class HYPERFY_PT_main_panel(Panel):
             rb_box.alert = True
             rb_box.label(text="⚡ RIGIDBODY DETAILS ⚡", icon='RIGID_BODY')
             
+            # Get the rigidbody object
+            rb_obj = rigidbody_objects[0]
+            
             # Physics type dropdown
             row = rb_box.row(align=True)
             row.prop(props, "physics_type", text="Type")
             
             # Mass (only show for dynamic type)
-            if props.physics_type == 'dynamic':
+            if rb_obj.get("type") == 'dynamic':
                 row = rb_box.row(align=True)
                 row.prop(props, "mass", text="Mass")
-            
-            # Apply button
-            row = rb_box.row(align=True)
-            row.scale_y = 1.4
-            row.operator("object.set_rigidbody_type", text="APPLY", icon='CHECKMARK')
-            
+
             # Find mesh and collider children
             mesh_obj = None
             collider_obj = None
@@ -634,30 +805,8 @@ class HYPERFY_PT_main_panel(Panel):
                 row.prop(collider_obj, '["trigger"]', text="Trigger")
             
             rb_box.separator()
-            
-            # Export section
-            export_box = layout.box()
-            export_box.alert = True
-            export_box.label(text="▸ EXPORT OPTIONS", icon='EXPORT')
-            
-            # Single object export
-            row = export_box.row(align=True)
-            row.scale_y = 1.4
-            row.operator("object.export_glb", text="EXPORT OBJECT", icon='OBJECT_DATA')
-            
-            # Batch export
-            row = export_box.row(align=True)
-            row.scale_y = 1.4
-            row.operator("object.export_all_glb", text="EXPORT ALL OBJECTS", icon='PACKAGE')
-            
-            # Info text
-            info_box = export_box.box()
-            col = info_box.column(align=True)
-            col.scale_y = 0.8
-            col.label(text="Object: Export selected objects", icon='INFO')
-            col.label(text="All: Export each object separately", icon='INFO')
 
-        # Snap Points section
+        # Snap Points section (moved above export)
         snap_box = layout.box()
         snap_box.alert = True
         snap_box.label(text="⚡ SNAP POINTS ⚡", icon='EMPTY_ARROWS')
@@ -672,6 +821,28 @@ class HYPERFY_PT_main_panel(Panel):
         col = info.column(align=True)
         col.scale_y = 0.8
         col.label(text="All snap points snap to each other", icon='INFO')
+            
+        # Export section
+        export_box = layout.box()
+        export_box.alert = True
+        export_box.label(text="▸ EXPORT OPTIONS", icon='EXPORT')
+        
+        # Single object export
+        row = export_box.row(align=True)
+        row.scale_y = 1.4
+        row.operator("object.export_glb", text="EXPORT OBJECT", icon='OBJECT_DATA')
+        
+        # Batch export
+        row = export_box.row(align=True)
+        row.scale_y = 1.4
+        row.operator("object.export_all_glb", text="EXPORT ALL OBJECTS", icon='PACKAGE')
+        
+        # Info text
+        info_box = export_box.box()
+        col = info_box.column(align=True)
+        col.scale_y = 0.8
+        col.label(text="Object: Export selected objects", icon='INFO')
+        col.label(text="All: Export each object separately", icon='INFO')
 
 class HYPERFY_PT_rig_converter_panel(Panel):
     """Rig Converter Panel for converting between Mixamo and VRM rigs"""
@@ -924,13 +1095,13 @@ class OBJECT_OT_vrm_to_mixamo(Operator):
 classes = (
     HyperfyProperties,
     HYPERFY_PT_main_panel,
-    OBJECT_OT_create_rigidbody,
-    OBJECT_OT_create_multiple_rigidbodies,
+    OBJECT_OT_create_rigidbodies,
     OBJECT_OT_export_glb,
     OBJECT_OT_export_all_glb,
     OBJECT_OT_set_rigidbody_type,
     OBJECT_OT_set_mesh_property,
     OBJECT_OT_set_collider_property,
+    OBJECT_OT_update_rigidbody_property,
     HYPERFY_PT_rig_converter_panel,
     OBJECT_OT_mixamo_to_vrm,
     OBJECT_OT_vrm_to_mixamo,
