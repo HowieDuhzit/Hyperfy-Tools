@@ -64,7 +64,7 @@ A Blender addon that provides tools for creating and exporting rigidbody objects
 2. Search for Hyperfy and click "Install"
 
 ### Hyperfy Theme Installation (Optional)
-1. Download "Hyperfy.xyz"
+1. Download "Hyperfy.xml"
 2. In Blender, go to Edit > Preferences > Themes
 3. Click "Install..." at the top
 4. Select the "Hyperfy" theme from the dropdown
