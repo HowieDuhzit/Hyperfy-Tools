@@ -9,6 +9,7 @@ def setup_collider(obj, context):
     """Setup common collider properties"""
     props = context.scene.hyperfy_props  # Get the property group
     
+    # Always set name to "Collider"
     obj.name = "Collider"
     obj.display_type = 'WIRE'
     
@@ -20,6 +21,11 @@ def setup_collider(obj, context):
     obj["node"] = "collider"
     obj["convex"] = props.convex  # Use props instead of scene
     obj["trigger"] = props.trigger  # Use props instead of scene
+    
+    # Reset transforms since it will be parented
+    obj.location = (0, 0, 0)
+    obj.rotation_euler = (0, 0, 0)
+    obj.scale = (1, 1, 1)
     
     return obj
 
@@ -166,94 +172,189 @@ class HyperfyProperties(bpy.types.PropertyGroup):
         min=0.0
     )
 
-# Update operator names to use standard tags
-class OBJECT_OT_create_rigidbody(Operator):
-    """Create a new Rigidbody object"""
-    bl_idname = "object.create_rigidbody"
-    bl_label = "Create Rigidbody"
-    bl_options = {'REGISTER', 'UNDO'}
+def find_col_object(obj_name, objects):
+    """Find a matching collision object (with COL suffix) for the given object name"""
+    base_name = obj_name.lower().replace('lod', '').replace('.', '').rstrip('0123456789')
     
-    def process_hierarchy(self, context, obj, parent_empty=None):
-        """Process object and its children recursively"""
-        props = context.scene.hyperfy_props
-        processed_objects = []
+    for obj in objects:
+        if obj.name.lower().endswith('col') and obj.name.lower().replace('col', '') == base_name:
+            return obj
+    return None
+
+def process_rigidbody_hierarchy(context, obj, parent_empty=None, lod_variants=None):
+    """Process object and its children recursively to create rigidbody setup with LODs"""
+    props = context.scene.hyperfy_props
+    processed_objects = []
+    
+    # Process current object if it's a mesh
+    if obj.type == 'MESH':
+        # Get base name without LOD/COL suffix
+        base_name = obj.name.split('LOD')[0].replace('COL', '')
+        orig_world_location = obj.matrix_world.to_translation()
         
-        # Process current object if it's a mesh
-        if obj.type == 'MESH':
-            # Store original world location and name
-            orig_name = obj.name
-            orig_world_location = obj.matrix_world.to_translation()
-            
-            # Create empty parent at original world location
-            empty = bpy.data.objects.new(orig_name, None)
-            empty.empty_display_type = 'PLAIN_AXES'
-            empty.empty_display_size = 1
+        # Create empty parent (rigidbody) - use exact base name
+        empty = bpy.data.objects.new(base_name, None)
+        empty.empty_display_type = 'PLAIN_AXES'
+        empty.empty_display_size = 1
+        empty.matrix_world.translation = orig_world_location
+        context.scene.collection.objects.link(empty)
+        
+        # Parent to previous rigidbody if exists
+        if parent_empty:
+            empty.parent = parent_empty
             empty.matrix_world.translation = orig_world_location
+        
+        # Add rigidbody properties
+        empty["node"] = "rigidbody"
+        empty["mass"] = props.mass
+        empty["type"] = props.physics_type
+        
+        # Create LOD empty with base name convention
+        lod_empty = bpy.data.objects.new(f"{base_name}LOD", None)  # e.g., "CubeLOD"
+        lod_empty.empty_display_type = 'PLAIN_AXES'
+        lod_empty.empty_display_size = 0.75
+        lod_empty["node"] = "lod"
+        context.scene.collection.objects.link(lod_empty)
+        lod_empty.parent = empty
+        
+        # Process LOD variants
+        if lod_variants:
+            # Remove COL objects from variants
+            col_obj = find_col_object(base_name, lod_variants)
+            if col_obj:
+                lod_variants.remove(col_obj)
             
-            # Add to the same collections as the original object
-            for collection in obj.users_collection:
-                collection.objects.link(empty)
+            # Sort variants by LOD number
+            sorted_variants = sorted(lod_variants, 
+                key=lambda x: int(''.join(filter(str.isdigit, x.name.split('LOD')[-1])) or '0'))
             
-            # Parent to previous rigidbody if exists
-            if parent_empty:
-                empty.parent = parent_empty
-                # Update location to maintain world position after parenting
-                empty.matrix_world.translation = orig_world_location
+            # Create mesh for each LOD variant
+            for i, variant in enumerate(sorted_variants):
+                lod_mesh = variant.copy()
+                lod_mesh.data = variant.data.copy()
+                
+                # Use exact naming convention: CubeMeshLOD0, CubeMeshLOD1, etc.
+                lod_mesh.name = f"{base_name}MeshLOD{i}"
+                
+                context.scene.collection.objects.link(lod_mesh)
+                
+                # Reset transforms
+                lod_mesh.location = (0, 0, 0)
+                lod_mesh.rotation_euler = (0, 0, 0)
+                lod_mesh.scale = (1, 1, 1)
+                
+                # Add mesh properties
+                lod_mesh["castShadow"] = props.cast_shadow
+                lod_mesh["receiveShadow"] = props.receive_shadow
+                lod_mesh["node"] = "Mesh"
+                # Adjust LOD distances for world size 200 and max camera distance 75
+                if i == 0:
+                    lod_mesh["maxDistance"] = 25  # LOD0 is closest, for high detail up close
+                else:
+                    lod_mesh["maxDistance"] = 25 + (i * 25)  # Each subsequent LOD increases distance
+                
+                # Parent to LOD empty
+                lod_mesh.parent = lod_empty
+                
+                processed_objects.append(variant)
+        
+        # Handle collider
+        col_obj = find_col_object(base_name, context.selected_objects)
+        if col_obj:
+            # Use the COL object directly as the collider
+            setup_collider(col_obj, context)
+            col_obj.name = f"{base_name}Collider"  # Match naming convention
+            col_obj.parent = empty
+        else:
+            # Create and setup collider as before
+            bpy.ops.object.select_all(action='DESELECT')
             
-            # Create mesh copy
-            mesh_obj = obj.copy()
-            mesh_obj.data = obj.data.copy()
-            mesh_obj.name = "Mesh"
-            # Add to the same collections as the original object
-            for collection in obj.users_collection:
-                collection.objects.link(mesh_obj)
+            # Get the highest LOD mesh to use as collider base
+            collider_base = None
+            if lod_variants:
+                # Sort variants by LOD number (highest to lowest)
+                sorted_variants = sorted(lod_variants, 
+                    key=lambda x: int(''.join(filter(str.isdigit, x.name.split('LOD')[-1])) or '0'),
+                    reverse=True)
+                collider_base = sorted_variants[0]  # Use highest LOD number
+            else:
+                collider_base = obj
             
-            # Reset local transform since it will be parented
-            mesh_obj.location = (0, 0, 0)
-            mesh_obj.rotation_euler = (0, 0, 0)
-            mesh_obj.scale = (1, 1, 1)
-            
-            # Add mesh properties
-            mesh_obj["castShadow"] = props.cast_shadow
-            mesh_obj["receiveShadow"] = props.receive_shadow
-            mesh_obj["node"] = "Mesh"
-            
-            # Create appropriate collider
             if props.collider_type == 'box':
                 collider = create_box_collider(context)
             elif props.collider_type == 'sphere':
                 collider = create_sphere_collider(context)
             elif props.collider_type == 'simple':
-                collider = create_simple_collider(obj, context)
+                collider = create_simple_collider(collider_base, context)
             else:  # geometry
-                collider = obj.copy()
-                collider.data = obj.data.copy()
-                # Add to the same collections as the original object
-                for collection in obj.users_collection:
-                    collection.objects.link(collider)
-                # Reset local transform since it will be parented
-                collider.location = (0, 0, 0)
-                collider.rotation_euler = (0, 0, 0)
-                collider.scale = (1, 1, 1)
+                collider = collider_base.copy()
+                collider.data = collider_base.data.copy()
+                context.scene.collection.objects.link(collider)
                 setup_collider(collider, context)
             
-            # Add rigidbody properties
-            empty["node"] = "rigidbody"
-            empty["mass"] = props.mass
-            empty["type"] = props.physics_type
-            
-            # Parent objects to empty
-            mesh_obj.parent = empty
-            collider.parent = empty
-            
-            processed_objects.append(obj)
-            
-            # Process all children recursively
-            for child in obj.children:
-                child_processed = self.process_hierarchy(context, child, empty)
-                processed_objects.extend(child_processed)
+            # Ensure collider is properly set up with consistent naming
+            collider.name = f"{base_name}Collider"  # Use same naming convention as COL objects
+            collider["node"] = "collider"
+            collider.parent = empty  # Parent directly to rigidbody empty
         
-        return processed_objects
+        # Process all children recursively
+        for child in obj.children:
+            child_processed = process_rigidbody_hierarchy(context, child, empty)
+            processed_objects.extend(child_processed)
+    
+    return processed_objects
+
+def is_lod_variant(name1, name2):
+    """Check if two names represent LOD variants of the same object"""
+    # Remove common LOD suffixes
+    base1 = name1.lower().replace('lod', '').replace('.', '').rstrip('0123456789')
+    base2 = name2.lower().replace('lod', '').replace('.', '').rstrip('0123456789')
+    return base1 == base2
+
+def get_lod_groups(objects):
+    """Group objects by their base names (for LOD processing)"""
+    lod_groups = {}
+    
+    for obj in objects:
+        base_name = obj.name.lower()
+        # Strip LOD and COL suffixes to get base name
+        if 'lod' in base_name:
+            base_name = base_name.split('lod')[0]
+        elif 'col' in base_name:
+            base_name = base_name.replace('col', '')
+        base_name = base_name.strip()
+        
+        # Find existing group or create new one
+        found_group = None
+        for key in lod_groups.keys():
+            key_base = key.name.lower()
+            if 'lod' in key_base:
+                key_base = key_base.split('lod')[0]
+            elif 'col' in key_base:
+                key_base = key_base.replace('col', '')
+            key_base = key_base.strip()
+            
+            if key_base == base_name:
+                found_group = key
+                break
+        
+        if found_group:
+            lod_groups[found_group].append(obj)
+        else:
+            # For new groups, prefer non-COL object as key
+            if not obj.name.lower().endswith('col'):
+                lod_groups[obj] = [obj]
+            else:
+                # If only COL object found so far, use it as key
+                lod_groups[obj] = [obj]
+    
+    return lod_groups
+
+class OBJECT_OT_create_rigidbody(Operator):
+    """Create a new Rigidbody object"""
+    bl_idname = "object.create_rigidbody"
+    bl_label = "Create Rigidbody"
+    bl_options = {'REGISTER', 'UNDO'}
     
     def execute(self, context):
         props = context.scene.hyperfy_props
@@ -277,13 +378,21 @@ class OBJECT_OT_create_rigidbody(Operator):
             empty["mass"] = props.mass
             empty["type"] = props.physics_type
             
+            # Create LOD empty
+            lod_empty = bpy.data.objects.new("LOD", None)
+            lod_empty.empty_display_type = 'PLAIN_AXES'
+            lod_empty.empty_display_size = 0.75
+            lod_empty["node"] = "lod"
+            context.scene.collection.objects.link(lod_empty)
+            lod_empty.parent = empty
+            
             # Parent objects
-            mesh_obj.parent = empty
+            mesh_obj.parent = lod_empty
             collider.parent = empty
             
         else:
-            # Process hierarchy and get processed objects and top empty
-            processed_objects, top_empty = self.process_hierarchy(context, selected_obj)
+            # Process hierarchy and get processed objects
+            processed_objects = process_rigidbody_hierarchy(context, selected_obj)
             
             if not processed_objects:
                 self.report({'WARNING'}, "No valid objects to process")
@@ -293,15 +402,7 @@ class OBJECT_OT_create_rigidbody(Operator):
             bpy.ops.object.select_all(action='DESELECT')
             for obj in processed_objects:
                 obj.select_set(True)
-                if obj.parent and obj.parent.get("node") == "rigidbody":
-                    obj.parent.select_set(True)
             bpy.ops.object.delete()
-            
-            # Select the top empty
-            if top_empty:
-                bpy.ops.object.select_all(action='DESELECT')
-                top_empty.select_set(True)
-                context.view_layer.objects.active = top_empty
         
         return {'FINISHED'}
 
@@ -311,114 +412,49 @@ class OBJECT_OT_create_rigidbodies(Operator):
     bl_label = "Create Rigidbodies"
     bl_options = {'REGISTER', 'UNDO'}
     
-    def process_hierarchy(self, context, obj, parent_empty=None):
-        """Process object and its children recursively"""
-        props = context.scene.hyperfy_props
-        processed_objects = []
-        
-        # Process current object if it's a mesh
-        if obj.type == 'MESH':
-            # Store original world location and name
-            orig_name = obj.name
-            orig_world_location = obj.matrix_world.to_translation()
-            
-            # Create empty parent at original world location
-            empty = bpy.data.objects.new(orig_name, None)
-            empty.empty_display_type = 'PLAIN_AXES'
-            empty.empty_display_size = 1
-            empty.matrix_world.translation = orig_world_location
-            
-            # Add to the same collections as the original object
-            for collection in obj.users_collection:
-                collection.objects.link(empty)
-            
-            # Parent to previous rigidbody if exists
-            if parent_empty:
-                empty.parent = parent_empty
-                # Update location to maintain world position after parenting
-                empty.matrix_world.translation = orig_world_location
-            
-            # Create mesh copy
-            mesh_obj = obj.copy()
-            mesh_obj.data = obj.data.copy()
-            mesh_obj.name = "Mesh"
-            # Add to the same collections as the original object
-            for collection in obj.users_collection:
-                collection.objects.link(mesh_obj)
-            
-            # Reset local transform since it will be parented
-            mesh_obj.location = (0, 0, 0)
-            mesh_obj.rotation_euler = (0, 0, 0)
-            mesh_obj.scale = (1, 1, 1)
-            
-            # Add mesh properties
-            mesh_obj["castShadow"] = props.cast_shadow
-            mesh_obj["receiveShadow"] = props.receive_shadow
-            mesh_obj["node"] = "Mesh"
-            
-            # Create appropriate collider
-            if props.collider_type == 'box':
-                collider = create_box_collider(context)
-            elif props.collider_type == 'sphere':
-                collider = create_sphere_collider(context)
-            elif props.collider_type == 'simple':
-                collider = create_simple_collider(obj, context)
-            else:  # geometry
-                collider = obj.copy()
-                collider.data = obj.data.copy()
-                # Add to the same collections as the original object
-                for collection in obj.users_collection:
-                    collection.objects.link(collider)
-                # Reset local transform since it will be parented
-                collider.location = (0, 0, 0)
-                collider.rotation_euler = (0, 0, 0)
-                collider.scale = (1, 1, 1)
-                setup_collider(collider, context)
-            
-            # Add rigidbody properties
-            empty["node"] = "rigidbody"
-            empty["mass"] = props.mass
-            empty["type"] = props.physics_type
-            
-            # Parent objects to empty
-            mesh_obj.parent = empty
-            collider.parent = empty
-            
-            processed_objects.append(obj)
-            
-            # Process all children recursively
-            for child in obj.children:
-                child_processed = self.process_hierarchy(context, child, empty)
-                processed_objects.extend(child_processed)
-        
-        return processed_objects
-    
     def execute(self, context):
-        # Store selected objects that are not children of other selected objects
-        top_level_objects = [obj for obj in context.selected_objects 
-                           if obj.type == 'MESH' and 
-                           (not obj.parent or obj.parent not in context.selected_objects)]
+        # Get selected mesh objects
+        selected_meshes = [obj for obj in context.selected_objects 
+                         if obj.type == 'MESH' and 
+                         (not obj.parent or obj.parent not in context.selected_objects)]
         
-        if not top_level_objects:
+        if not selected_meshes:
             self.report({'WARNING'}, "No valid objects selected")
             return {'CANCELLED'}
         
-        # Process each top-level object and collect all processed objects
+        # Group objects by LOD
+        lod_groups = get_lod_groups(selected_meshes)
+        
+        # Process each group
         all_processed_objects = []
+        created_rigidbodies = []  # Store created rigidbody empties
         created_count = 0
-        for obj in top_level_objects:
-            processed = self.process_hierarchy(context, obj)
+        
+        for main_obj, lod_variants in lod_groups.items():
+            # Process the group with all its LOD variants
+            processed = process_rigidbody_hierarchy(context, main_obj, lod_variants=lod_variants)
             if processed:
                 all_processed_objects.extend(processed)
-                created_count += 1  # Count top-level rigidbodies created
+                # Find and store the created rigidbody empty
+                for obj in context.scene.objects:
+                    if (obj.get("node") == "rigidbody" and 
+                        obj.name.startswith(main_obj.name.split('LOD')[0].replace('COL', ''))):
+                        created_rigidbodies.append(obj)
+                created_count += 1
         
         # Delete all processed original objects
         if all_processed_objects:
             bpy.ops.object.select_all(action='DESELECT')
             for obj in all_processed_objects:
-                if isinstance(obj, bpy.types.Object):  # Ensure it's a valid Blender object
+                if isinstance(obj, bpy.types.Object):
                     obj.select_set(True)
             bpy.ops.object.delete()
+        
+        # Select the created rigidbodies
+        bpy.ops.object.select_all(action='DESELECT')
+        for rb in created_rigidbodies:
+            rb.select_set(True)
+            context.view_layer.objects.active = rb  # Make the last one active
         
         self.report({'INFO'}, f"Created {created_count} rigidbodies")
         return {'FINISHED'}
@@ -670,8 +706,17 @@ class OBJECT_OT_update_rigidbody_property(Operator):
             active_obj[self.property_name] = self.property_value
         return {'FINISHED'}
 
+def get_rigidbody_parent(obj):
+    """Get the rigidbody parent of an object in the hierarchy"""
+    current = obj
+    while current:
+        if current.get("node") == "rigidbody":
+            return current
+        current = current.parent
+    return None
+
 class HYPERFY_PT_main_panel(Panel):
-    """Hyperfy Tools Panel"""
+    """Main Panel for Hyperfy Tools"""
     bl_label = "Hyperfy Tools"
     bl_idname = "HYPERFY_PT_main_panel"
     bl_space_type = 'VIEW_3D'
@@ -689,17 +734,72 @@ class HYPERFY_PT_main_panel(Panel):
         active_obj = context.active_object
         selected_objects = context.selected_objects
         
-        # Get all selected rigidbody setups
-        rigidbody_objects = []
-        if active_obj:  # Check active object first
+        # Get rigidbody object (either selected or parent)
+        rigidbody_obj = None
+        if active_obj:
             if active_obj.get("node") == "rigidbody":
-                rigidbody_objects.append(active_obj)
-            elif active_obj.get("node") in ["Mesh", "collider"] and active_obj.parent:
-                if active_obj.parent.get("node") == "rigidbody":
-                    rigidbody_objects.append(active_obj.parent)
+                rigidbody_obj = active_obj
+            else:
+                rigidbody_obj = get_rigidbody_parent(active_obj)
+        
+        # Draw rigidbody details if found
+        if rigidbody_obj:
+            rb_box = layout.box()
+            rb_box.alert = True
+            rb_box.label(text="▸ RIGIDBODY DETAILS", icon='OBJECT_DATA')
+            
+            # Physics type
+            col = rb_box.column(align=True)
+            row = col.row(align=True)
+            row.prop(rigidbody_obj, '["type"]', text="Type")
+            
+            # Mass (only show for dynamic objects)
+            if rigidbody_obj["type"] == "dynamic":
+                row = col.row(align=True)
+                row.prop(rigidbody_obj, '["mass"]', text="Mass")
+            
+            # Find collider in children
+            collider_obj = None
+            for child in rigidbody_obj.children:
+                if child.get("node") == "collider":
+                    collider_obj = child
+                    break
+            
+            # Show collider properties if found
+            if collider_obj:
+                col_box = rb_box.box()
+                col_box.label(text="Collider Properties:", icon='MESH_CUBE')
+                col = col_box.column(align=True)
+                row = col.row(align=True)
+                row.prop(collider_obj, '["convex"]', text="Convex")
+                row.prop(collider_obj, '["trigger"]', text="Trigger")
+            
+            # Find LOD empty and meshes
+            lod_empty = None
+            lod_meshes = []
+            for child in rigidbody_obj.children:
+                if child.get("node") == "lod":
+                    lod_empty = child
+                    # Get LOD meshes sorted by name
+                    lod_meshes = sorted([mesh for mesh in child.children if mesh.get("node") == "Mesh"],
+                                      key=lambda x: x.name)
+                    break
+            
+            # Show LOD properties if found
+            if lod_meshes:
+                lod_box = rb_box.box()
+                lod_box.label(text="LOD Distances:", icon='MESH_DATA')
+                col = lod_box.column(align=True)
+                
+                for mesh in lod_meshes:
+                    row = col.row(align=True)
+                    row.label(text=mesh.name)
+                    row.prop(mesh, '["maxDistance"]', text="Distance")
+            
+            rb_box.separator()
         
         # Show creation controls if no rigidbody is selected
-        if not rigidbody_objects:
+        if not rigidbody_obj:
             # Physics section
             main_box = layout.box()
             main_box.alert = True
@@ -759,53 +859,6 @@ class HYPERFY_PT_main_panel(Panel):
             create_row.scale_y = 1.8
             create_row.operator("object.create_rigidbodies", text="⚡ CREATE RIGIDBODIES ⚡", icon='ADD')
         
-        else:  # Show details and export if rigidbody is selected
-            # Rigidbody Details section
-            rb_box = layout.box()
-            rb_box.alert = True
-            rb_box.label(text="⚡ RIGIDBODY DETAILS ⚡", icon='RIGID_BODY')
-            
-            # Get the rigidbody object
-            rb_obj = rigidbody_objects[0]
-            
-            # Physics type dropdown
-            row = rb_box.row(align=True)
-            row.prop(props, "physics_type", text="Type")
-            
-            # Mass (only show for dynamic type)
-            if rb_obj.get("type") == 'dynamic':
-                row = rb_box.row(align=True)
-                row.prop(props, "mass", text="Mass")
-
-            # Find mesh and collider children
-            mesh_obj = None
-            collider_obj = None
-            for child in rigidbody_objects[0].children:
-                if child.get("node") == "Mesh":
-                    mesh_obj = child
-                elif child.get("node") == "collider":
-                    collider_obj = child
-            
-            if mesh_obj:
-                # Mesh properties
-                mesh_box = rb_box.box()
-                mesh_box.label(text="▸ MESH PROPERTIES", icon='MESH_DATA')
-                col = mesh_box.column(align=True)
-                row = col.row(align=True)
-                row.prop(mesh_obj, '["castShadow"]', text="Cast Shadow")
-                row.prop(mesh_obj, '["receiveShadow"]', text="Receive Shadow")
-            
-            if collider_obj:
-                # Collider properties
-                col_box = rb_box.box()
-                col_box.label(text="▸ COLLIDER PROPERTIES", icon='MOD_MESHDEFORM')
-                col = col_box.column(align=True)
-                row = col.row(align=True)
-                row.prop(collider_obj, '["convex"]', text="Convex")
-                row.prop(collider_obj, '["trigger"]', text="Trigger")
-            
-            rb_box.separator()
-
         # Snap Points section (moved above export)
         snap_box = layout.box()
         snap_box.alert = True

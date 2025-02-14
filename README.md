@@ -36,6 +36,28 @@ A Blender addon that provides tools for creating and exporting rigidbody objects
 - Preserves all custom properties
 - Maintains hierarchy and transformations
 
+### LOD System
+- Automatic LOD setup with appropriate view distances for Hyperfy worlds
+  - LOD0: 25m (closest, highest detail)
+  - LOD1: 50m (medium distance)
+  - LOD2: 75m (furthest view distance)
+- Support for multiple LOD levels with increasing view distances
+- Smart detection of LOD variants and COL objects
+- Live editing of LOD distances in rigidbody details panel
+
+### Collider System
+- Support for custom collision meshes using COL suffix
+- Automatic collider generation from highest LOD when no COL object exists
+- Multiple collider types: box, sphere, simple, geometry
+- Proper hierarchy setup with direct parenting to rigidbody
+
+### Rigidbody Details
+- View and edit rigidbody properties from any selected object in hierarchy
+- Live editing of physics type and mass
+- Collider property editing (convex, trigger)
+- LOD distance adjustment interface
+- Proper property inheritance through hierarchy
+
 ## Installation
 
 1. Download the latest release

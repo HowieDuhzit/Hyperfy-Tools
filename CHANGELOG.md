@@ -104,5 +104,34 @@ All notable changes to the Hyperfy Tools addon will be documented in this file.
 - Fixed context issues when switching between edit and object modes
 - Fixed mode restoration when creating snap points in edit mode
 
+## [1.3.4] - 2024-03-XX
+
+### Changed
+- Adjusted LOD distances to be more appropriate for world size (200) and max camera distance (75)
+  - LOD0: 25 units (closest, highest detail)
+  - LOD1: 50 units
+  - LOD2: 75 units (furthest, lowest detail)
+- Improved rigidbody details UI to show when any part of hierarchy is selected
+- Added live LOD distance editing in rigidbody details panel
+
+### Fixed
+- Improved naming convention consistency:
+  - Main object: "Cube"
+  - Collider: "CubeCollider"
+  - LOD empty: "CubeLOD"
+  - LOD meshes: "CubeMeshLOD0", "CubeMeshLOD1", etc.
+- Fixed issue with COL objects creating separate rigidbodies
+- Improved LOD grouping and sorting logic
+- Fixed collider parenting when using COL objects
+- Better handling of object naming and hierarchy creation
+- Fixed rigidbody details not showing when selecting LOD or mesh objects
+
+### Added
+- Support for using existing COL objects as colliders
+- Automatic detection and grouping of LOD variants
+- Smarter base name detection for object groups
+- Live editing of LOD distances in rigidbody details panel
+- Rigidbody details now visible when selecting any part of the hierarchy
+
 ## [Previous Versions]
 ... 

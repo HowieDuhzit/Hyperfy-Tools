@@ -2,7 +2,7 @@ schema_version = "1.0.0"
 
 # Hyperfy Tools Blender Extension
 id = "hyperfy_tools"
-version = "1.3.3"
+version = "1.3.4"
 name = "Hyperfy Tools"
 tagline = "Tools for creating Hyperfy assets with physics and colliders"
 maintainer = "Howie Duhzit"
@@ -32,4 +32,7 @@ paths_exclude_pattern = [
     "__pycache__/",
     "/.git/",
     "/*.zip",
+    "/*.png",
+    "/*.md",
+    "/*.xml",
 ] 
