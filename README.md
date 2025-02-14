@@ -95,12 +95,3 @@ A Blender addon that provides tools for creating and exporting rigidbody objects
 1. Select object(s) to export
 2. Use "Export Object" for single objects
 3. Use "Export All Objects" for batch export
-
-## New in Version 1.3.0
-
-- Added Rig Converter panel for Mixamo/VRM conversion
-- Improved property management with PropertyGroup
-- Updated operator naming to follow Blender conventions
-- Better code organization and registration
-- See [CHANGELOG.md](CHANGELOG.md) for full details
-
