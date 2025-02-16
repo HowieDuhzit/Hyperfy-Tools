@@ -1,8 +1,7 @@
 from . import main_panel
 from . import credits_panel
-from . import snap_list
 
-__all__ = ['main_panel', 'credits_panel', 'snap_list']
+__all__ = ['main_panel', 'credits_panel']
 
 def register():
     for module in modules:

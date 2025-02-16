@@ -12,7 +12,7 @@ bl_info = {
 
 import bpy
 from .operators import rigidbody_operators, export_operators, rig_operators, snap_operators, property_operators
-from .panels import main_panel, credits_panel, snap_list
+from .panels import main_panel, credits_panel
 from .properties import hyperfy_properties
 
 # Collect all classes to register
@@ -36,7 +36,6 @@ classes = (
     # Panels
     main_panel.HYPERFY_PT_main_panel,
     credits_panel.HYPERFY_PT_credits_panel,
-    snap_list.HYPERFY_UL_snap_point_list,
 )
 
 def register():
