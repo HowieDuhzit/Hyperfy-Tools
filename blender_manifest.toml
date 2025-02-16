@@ -2,7 +2,7 @@ schema_version = "1.0.0"
 
 # Hyperfy Tools Blender Extension
 id = "hyperfy_tools"
-version = "1.4.0"
+version = "1.4.2"
 name = "Hyperfy Tools"
 tagline = "Tools for creating Hyperfy assets"
 maintainer = "Howie Duhzit"
@@ -40,6 +40,7 @@ paths_exclude_pattern = [
     "/*.blend1",
     "/dist/",
     "/build/",
+    "/extras/",
     "*.egg-info/",
     "/HyperfyTools.py",
 ] 

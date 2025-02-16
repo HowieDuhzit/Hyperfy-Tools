@@ -2,6 +2,13 @@
 
 All notable changes to the Hyperfy Tools addon will be documented in this file.
 
+## [1.4.1/2] - 2024-03-20 HOTFIXES
+
+### Fixed
+- LOD mesh naming sequence now correctly starts at LOD0 instead of LOD1
+- Improved LOD variant sorting to maintain proper order
+- Fixed naming convention for LOD meshes to match documentation
+
 ## [1.4.0] - 2024-03-20
 
 ### Changed

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo.png" alt="Hyperfy Tools Logo" width="150"/>
+  <img src="extras/logo.png" alt="Hyperfy Tools Logo" width="150"/>
 </p>
 
 # [Hyperfy](https://github.com/hyperfy-xyz/hyperfy) Tools
@@ -17,6 +17,14 @@ Blender addon for creating and exporting assets for the Hyperfy platform.
 2. In Blender, go to Edit > Preferences > Add-ons
 3. Click "Install" and select the downloaded file
 4. Enable the addon by checking the box
+
+### Theme Installation (Optional)
+For the full cyberpunk experience:
+1. Download [Hyperfy.blend](https://github.com/HowieDuhzit/HyperfyTools/releases/download/v1.4.0/Hyperfy.blend) and [Hyperfy.xml](https://github.com/HowieDuhzit/HyperfyTools/releases/download/v1.4.0/Hyperfy.xml)
+2. In Blender, go to Edit > Preferences > Themes
+3. Click "Install..." and select Hyperfy.xml for the UI theme
+4. Open Hyperfy.blend and File > Defaults > Load Factory Settings
+5. The theme will now be applied with custom splash screen and icons
 
 ## Usage
 The tools can be found in the Hyperfy tab in the 3D View sidebar (N).

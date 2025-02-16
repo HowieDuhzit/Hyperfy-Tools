@@ -50,33 +50,44 @@ def process_rigidbody_hierarchy(context, main_obj, lod_variants=None):
     
     # Process LOD variants
     if lod_variants:
-        for i, variant in enumerate(sorted(lod_variants, key=lambda x: x.name)):
-            if not variant.name.lower().endswith('col'):
-                # Create LOD mesh
-                lod_mesh = variant.copy()
-                lod_mesh.data = variant.data.copy()
-                lod_mesh.name = f"{empty.name}MeshLOD{i}"
-                context.scene.collection.objects.link(lod_mesh)
-                
-                # Reset transforms
-                lod_mesh.location = (0, 0, 0)
-                lod_mesh.rotation_euler = (0, 0, 0)
-                lod_mesh.scale = (1, 1, 1)
-                
-                # Add mesh properties
-                lod_mesh["castShadow"] = props.cast_shadow
-                lod_mesh["receiveShadow"] = props.receive_shadow
-                lod_mesh["node"] = "Mesh"
-                
-                # Set LOD distance
-                if i == 0:
-                    lod_mesh["maxDistance"] = 25  # LOD0 is closest
-                else:
-                    lod_mesh["maxDistance"] = 25 + (i * 25)  # Increase with each LOD
-                
-                # Parent to LOD empty
-                lod_mesh.parent = lod_empty
-                processed_objects.append(variant)
+        # Sort variants by LOD number or name if no LOD number
+        def get_lod_number(obj):
+            if 'LOD' in obj.name:
+                try:
+                    return int(obj.name.split('LOD')[-1])
+                except ValueError:
+                    return float('inf')
+            return float('inf')
+        
+        sorted_variants = sorted([v for v in lod_variants if not v.name.lower().endswith('col')], 
+                               key=get_lod_number)
+        
+        for i, variant in enumerate(sorted_variants):
+            # Create LOD mesh
+            lod_mesh = variant.copy()
+            lod_mesh.data = variant.data.copy()
+            lod_mesh.name = f"{empty.name}MeshLOD{i}"  # Will start at LOD0
+            context.scene.collection.objects.link(lod_mesh)
+            
+            # Reset transforms
+            lod_mesh.location = (0, 0, 0)
+            lod_mesh.rotation_euler = (0, 0, 0)
+            lod_mesh.scale = (1, 1, 1)
+            
+            # Add mesh properties
+            lod_mesh["castShadow"] = props.cast_shadow
+            lod_mesh["receiveShadow"] = props.receive_shadow
+            lod_mesh["node"] = "Mesh"
+            
+            # Set LOD distance
+            if i == 0:
+                lod_mesh["maxDistance"] = 25  # LOD0 is closest
+            else:
+                lod_mesh["maxDistance"] = 25 + (i * 25)  # Increase with each LOD
+            
+            # Parent to LOD empty
+            lod_mesh.parent = lod_empty
+            processed_objects.append(variant)
     
     # Create collider
     collider = None
