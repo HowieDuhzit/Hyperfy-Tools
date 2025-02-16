@@ -2,6 +2,36 @@
 
 All notable changes to the Hyperfy Tools addon will be documented in this file.
 
+## [1.4.0] - 2024-03-20
+
+### Changed
+- Complete restructure from single script to modular architecture:
+  - Organized into proper Python package structure
+  - Separated operators, panels, properties, and utilities
+  - Better code organization and maintainability
+  - Improved error handling and debugging
+- Improved rigidbody naming system:
+  - Removed "Rigidbody" suffix from empty objects
+  - Cleaner hierarchy naming convention
+  - Better handling of LOD and COL object names
+- Enhanced rigidbody property handling:
+  - Type changes now work on any selected object in hierarchy
+  - Improved COL object detection and usage
+  - Better sync between UI and object properties
+
+### Fixed
+- COL object handling when creating rigidbodies
+- Rigidbody type property synchronization
+- Naming consistency throughout hierarchy
+
+### Technical
+- Restructured project layout:
+  - Created separate modules for each component
+  - Added proper __init__.py files for module management
+  - Implemented proper class registration system
+  - Added comprehensive error handling
+  - Better dependency management between modules
+
 ## [1.3.0] - 2024-03-19
 
 ### Added
@@ -104,34 +134,23 @@ All notable changes to the Hyperfy Tools addon will be documented in this file.
 - Fixed context issues when switching between edit and object modes
 - Fixed mode restoration when creating snap points in edit mode
 
-## [1.3.4] - 2024-03-XX
-
-### Changed
-- Adjusted LOD distances to be more appropriate for world size (200) and max camera distance (75)
-  - LOD0: 25 units (closest, highest detail)
-  - LOD1: 50 units
-  - LOD2: 75 units (furthest, lowest detail)
-- Improved rigidbody details UI to show when any part of hierarchy is selected
-- Added live LOD distance editing in rigidbody details panel
-
-### Fixed
-- Improved naming convention consistency:
-  - Main object: "Cube"
-  - Collider: "CubeCollider"
-  - LOD empty: "CubeLOD"
-  - LOD meshes: "CubeMeshLOD0", "CubeMeshLOD1", etc.
-- Fixed issue with COL objects creating separate rigidbodies
-- Improved LOD grouping and sorting logic
-- Fixed collider parenting when using COL objects
-- Better handling of object naming and hierarchy creation
-- Fixed rigidbody details not showing when selecting LOD or mesh objects
+## [1.3.4] - 2024-01-01
 
 ### Added
-- Support for using existing COL objects as colliders
-- Automatic detection and grouping of LOD variants
-- Smarter base name detection for object groups
-- Live editing of LOD distances in rigidbody details panel
-- Rigidbody details now visible when selecting any part of the hierarchy
+- Support for Blender 4.2+
+- Improved LOD handling
+- Better collider generation
+- Enhanced snap point system
+
+### Fixed
+- Rigidbody property syncing
+- Export handling
+- Naming conventions
+
+### Changed
+- Updated UI layout
+- Improved error handling
+- Better performance
 
 ## [Previous Versions]
 ... 

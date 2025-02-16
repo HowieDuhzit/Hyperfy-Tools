@@ -2,14 +2,14 @@ schema_version = "1.0.0"
 
 # Hyperfy Tools Blender Extension
 id = "hyperfy_tools"
-version = "1.3.4"
+version = "1.4.0"
 name = "Hyperfy Tools"
-tagline = "Tools for creating Hyperfy assets with physics and colliders"
+tagline = "Tools for creating Hyperfy assets"
 maintainer = "Howie Duhzit"
 type = "add-on"
 
 # Categories that best describe this extension
-tags = ["Physics", "Import-Export", "3D View"]
+tags = ["Physics", "Import-Export", "3D View", "Game Engine", "Object"]
 
 blender_version_min = "4.2.0"
 
@@ -31,8 +31,15 @@ files = "Import/export GLB files from/to disk"
 paths_exclude_pattern = [
     "__pycache__/",
     "/.git/",
+    "/.gitignore",
     "/*.zip",
     "/*.png",
     "/*.md",
     "/*.xml",
+    "/*.blend",
+    "/*.blend1",
+    "/dist/",
+    "/build/",
+    "*.egg-info/",
+    "/HyperfyTools.py",
 ] 
