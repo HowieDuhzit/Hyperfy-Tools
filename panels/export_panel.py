@@ -31,23 +31,23 @@ class HYPERFY_PT_export_panel(Panel):
     def draw(self, context):
         layout = self.layout
         
-        # Export section
+        # GLB Export section
         export_box = layout.box()
         export_box.alert = True
         export_box.label(text="⚡ GLB EXPORT ⚡", icon='EXPORT')
         
-        # Export buttons
+        # GLB Export buttons
         col = export_box.column(align=True)
         
         # Single object export
         row = col.row(align=True)
         row.scale_y = 1.5
-        row.operator("object.export_glb", text="EXPORT", icon='EXPORT')
+        row.operator("object.export_glb", text="EXPORT GLB", icon='EXPORT')
         
         # Batch export
         row = col.row(align=True)
         row.scale_y = 1.5
-        row.operator("object.export_all_glb", text="BATCH EXPORT", icon='FILE_REFRESH')
+        row.operator("object.export_all_glb", text="BATCH EXPORT GLB", icon='FILE_REFRESH')
         
         # Info box
         info = export_box.box()

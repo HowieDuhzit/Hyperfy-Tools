@@ -11,6 +11,9 @@ Blender addon for creating and exporting assets for the Hyperfy platform.
 - Convert between Mixamo and VRM rigs
 - Export GLB files with custom properties
 - Add snap points for object placement
+- Renamer for advanced batch object renaming (New in 1.5.0)
+- Enhanced stability and performance (New in 1.4.3)
+- Improved error handling and debugging (New in 1.4.3)
 
 ## Installation
 1. Download the latest release
@@ -40,6 +43,14 @@ The tools can be found in the Hyperfy tab in the 3D View sidebar (N).
 - Select an armature
 - Convert between Mixamo and VRM naming conventions
 - Maintains bone hierarchy and relationships
+
+### Renamer
+- Batch rename multiple selected objects at once
+- Add or remove prefixes and suffixes
+- Find and replace text in object names
+- Convert case (uppercase, lowercase, title case)
+- Add sequential numbering with customizable options
+- Clean up special characters in object names
 
 ### Export
 - Export single objects or entire scenes

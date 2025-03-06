@@ -9,6 +9,7 @@ class HYPERFY_PT_credits_panel(Panel):
     bl_region_type = 'UI'
     bl_category = 'Hyperfy'
     bl_options = {'DEFAULT_CLOSED'}
+    bl_order = 100  # High number ensures it stays at bottom
     
     def draw(self, context):
         layout = self.layout

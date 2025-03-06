@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Hyperfy Tools",
     "author": "Howie Duhzit",
-    "version": (1, 4, 2),
+    "version": (1, 5, 0),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar > Hyperfy",
     "description": "Tools for creating Hyperfy assets",
@@ -11,8 +11,8 @@ bl_info = {
 }
 
 import bpy
-from .operators import rigidbody_operators, export_operators, rig_operators, snap_operators, property_operators
-from .panels import main_panel, credits_panel, export_panel
+from .operators import rigidbody_operators, export_operators, rig_operators, snap_operators, property_operators, hyp_operators, renamer_operators
+from .panels import main_panel, credits_panel, export_panel, hyp_panel, renamer_panel
 from .properties import hyperfy_properties
 
 # Collect all classes to register
@@ -32,14 +32,22 @@ classes = (
     property_operators.OBJECT_OT_set_mesh_property,
     property_operators.OBJECT_OT_set_collider_property,
     property_operators.OBJECT_OT_update_rigidbody_property,
+    hyp_operators.OBJECT_OT_import_hyp,
+    renamer_operators.OBJECT_OT_batch_rename,
+    renamer_operators.OBJECT_OT_clean_names,
     
     # Panels
     main_panel.HYPERFY_PT_main_panel,
-    credits_panel.HYPERFY_PT_credits_panel,
     export_panel.HYPERFY_PT_export_panel,
+    hyp_panel.HYPERFY_PT_hyp_panel,
+    renamer_panel.HYPERFY_PT_renamer_panel,
+    credits_panel.HYPERFY_PT_credits_panel,
 )
 
 def register():
+    # Register renamer properties first
+    renamer_operators.register_renamer_properties()
+    
     for cls in classes:
         try:
             bpy.utils.register_class(cls)
@@ -58,6 +66,9 @@ def unregister():
             bpy.utils.unregister_class(cls)
         except ValueError as e:
             print(f"Error unregistering {cls}: {e}")
+    
+    # Unregister renamer properties last
+    renamer_operators.unregister_renamer_properties()
 
 if __name__ == "__main__":
     register()

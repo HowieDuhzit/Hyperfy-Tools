@@ -102,4 +102,80 @@ class HyperfyProperties(PropertyGroup):
         name="Radius",
         default=1.0,
         min=0.0
+    )
+    
+    # Hyperfy .hyp file properties
+    hyp_name: StringProperty(
+        name="Name",
+        description="Name of the Hyperfy object",
+        default=""
+    )
+    
+    hyp_frozen: BoolProperty(
+        name="Frozen",
+        description="If true, object cannot be moved/rotated in-game",
+        default=False
+    )
+    
+    hyp_script: StringProperty(
+        name="Script",
+        description="JavaScript file to use",
+        default="",
+        subtype='NONE'
+    )
+    
+    hyp_interact: BoolProperty(
+        name="Interactable",
+        description="If true, object can be interacted with",
+        default=False
+    )
+    
+    hyp_click_distance: FloatProperty(
+        name="Click Distance",
+        description="Maximum distance for interaction",
+        default=10.0,
+        min=0.0
+    )
+    
+    hyp_collision: BoolProperty(
+        name="Collision",
+        description="If true, object has collision",
+        default=True
+    )
+    
+    hyp_visible: BoolProperty(
+        name="Visible",
+        description="If true, object is visible",
+        default=True
+    )
+    
+    # Metadata properties
+    hyp_id: StringProperty(
+        name="ID",
+        description="Unique identifier of the object",
+        default=""
+    )
+    
+    hyp_version: IntProperty(
+        name="Version",
+        description="Version number of the object",
+        default=0
+    )
+    
+    hyp_author: StringProperty(
+        name="Author",
+        description="Creator of the object",
+        default=""
+    )
+    
+    hyp_created: StringProperty(
+        name="Created",
+        description="Creation date",
+        default=""
+    )
+    
+    hyp_modified: StringProperty(
+        name="Modified",
+        description="Last modified date",
+        default=""
     ) 

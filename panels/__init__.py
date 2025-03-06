@@ -1,8 +1,10 @@
 from . import main_panel
 from . import credits_panel
 from . import export_panel
+from . import hyp_panel
+from . import renamer_panel
 
-__all__ = ['main_panel', 'credits_panel', 'export_panel']
+__all__ = ['main_panel', 'credits_panel', 'export_panel', 'hyp_panel', 'renamer_panel']
 
 def register():
     for module in modules:

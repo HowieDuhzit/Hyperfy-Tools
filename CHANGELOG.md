@@ -2,6 +2,36 @@
 
 All notable changes to the Hyperfy Tools addon will be documented in this file.
 
+## [1.5.0] - 2024-03-24
+
+### Added
+- New Renamer panel for advanced object renaming:
+  - Prefix/suffix addition and removal
+  - Find and replace text in object names
+  - Case conversion (uppercase, lowercase, title case)
+  - Sequential numbering with customizable options
+  - Special character cleaning
+- Batch renaming for multiple selected objects
+- Visual counter showing number of selected objects
+
+### Changed
+- Updated to version 1.5.0
+- Improved panel organization
+- Renamer now available as a separate panel
+
+## [1.4.3] - 2024-03-21
+
+### Changed
+- Updated to version 1.4.3
+- Improved compatibility with Blender 4.2
+- Enhanced error handling and debugging
+- Better performance optimizations
+
+### Fixed
+- Various minor bug fixes and improvements
+- Enhanced stability for rigidbody creation
+- Improved property synchronization
+
 ## [1.4.1/2] - 2024-03-20 HOTFIXES
 
 ### Fixed
@@ -38,6 +68,59 @@ All notable changes to the Hyperfy Tools addon will be documented in this file.
   - Implemented proper class registration system
   - Added comprehensive error handling
   - Better dependency management between modules
+
+## [1.3.4] - 2024-01-01
+
+### Added
+- Support for Blender 4.2+
+- Improved LOD handling
+- Better collider generation
+- Enhanced snap point system
+
+### Fixed
+- Rigidbody property syncing
+- Export handling
+- Naming conventions
+
+### Changed
+- Updated UI layout
+- Improved error handling
+- Better performance
+
+## [1.3.3] - 2024-03-19
+
+### Added
+- Multiple snap points can now be created at once by selecting multiple vertices
+- Snap points can now be placed at selected vertex locations in edit mode
+- Sequential naming for snap points (SnapPoint.001, SnapPoint.002, etc.)
+
+### Changed
+- Improved snap point placement accuracy with better world space transformation
+- Enhanced snap point parenting to preserve world position when parenting to rigidbody
+- Updated snap point feedback message to show number of points created
+- Increased snap point sphere size for better visibility (0.1m → 0.2m)
+- Moved snap points section above export section in UI for better workflow
+- Improved mode handling when creating snap points in edit mode
+
+### Fixed
+- Fixed snap point positioning when parenting to rigidbody objects
+- Fixed vertex location calculation in world space
+- Fixed context issues when switching between edit and object modes
+- Fixed mode restoration when creating snap points in edit mode
+
+## [1.3.2] - 2024-03-XX
+
+### Changed
+- Changed default collider type from 'box' to 'geometry'
+- Changed default convex setting to off
+- Snap points now display as small spheres instead of axes
+- Rigidbodies are now created in the same collection as their source meshes
+- Improved world space position handling for parented objects when creating rigidbodies
+
+### Fixed
+- Fixed rigidbody type dropdown not updating custom properties in Details menu
+- Fixed location issues when creating rigidbodies from parented meshes
+- Fixed parent hierarchy preservation when creating rigidbodies
 
 ## [1.3.0] - 2024-03-19
 
@@ -105,59 +188,6 @@ All notable changes to the Hyperfy Tools addon will be documented in this file.
 - Shadow casting/receiving options
 - Mass and collision properties
 - Basic UI in 3D View sidebar
-
-## [1.3.2] - 2024-03-XX
-
-### Changed
-- Changed default collider type from 'box' to 'geometry'
-- Changed default convex setting to off
-- Snap points now display as small spheres instead of axes
-- Rigidbodies are now created in the same collection as their source meshes
-- Improved world space position handling for parented objects when creating rigidbodies
-
-### Fixed
-- Fixed rigidbody type dropdown not updating custom properties in Details menu
-- Fixed location issues when creating rigidbodies from parented meshes
-- Fixed parent hierarchy preservation when creating rigidbodies
-
-## [1.3.3] - 2024-03-19
-
-### Added
-- Multiple snap points can now be created at once by selecting multiple vertices
-- Snap points can now be placed at selected vertex locations in edit mode
-- Sequential naming for snap points (SnapPoint.001, SnapPoint.002, etc.)
-
-### Changed
-- Improved snap point placement accuracy with better world space transformation
-- Enhanced snap point parenting to preserve world position when parenting to rigidbody
-- Updated snap point feedback message to show number of points created
-- Increased snap point sphere size for better visibility (0.1m → 0.2m)
-- Moved snap points section above export section in UI for better workflow
-- Improved mode handling when creating snap points in edit mode
-
-### Fixed
-- Fixed snap point positioning when parenting to rigidbody objects
-- Fixed vertex location calculation in world space
-- Fixed context issues when switching between edit and object modes
-- Fixed mode restoration when creating snap points in edit mode
-
-## [1.3.4] - 2024-01-01
-
-### Added
-- Support for Blender 4.2+
-- Improved LOD handling
-- Better collider generation
-- Enhanced snap point system
-
-### Fixed
-- Rigidbody property syncing
-- Export handling
-- Naming conventions
-
-### Changed
-- Updated UI layout
-- Improved error handling
-- Better performance
 
 ## [Previous Versions]
 ... 
